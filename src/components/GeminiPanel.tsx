@@ -29,6 +29,7 @@ const MODELS = [
   "deepseek/deepseek-v4-flash:free",
   "minimax/minimax-m2.5:free",
   "nvidia/nemotron-3-super-120b-a12b:free",
+  "google/gemini-2.5-flash",  // paid fallback — only used when all free models fail
 ] as const;
 
 interface Message {
