@@ -47,7 +47,7 @@ export default function Header({ currentDate, criticalCount }: HeaderProps) {
             <div className="mt-6 flex flex-wrap gap-2">
               <div className="flex items-center gap-2 bg-paper-dark border border-ink px-3 py-1.5 font-mono text-xs text-ink/90">
                 <span className="h-2 w-2 rounded-full bg-safe inline-block animate-pulse" />
-                <span>Fecha Reporte: <strong className="font-bold">Mayo 28, 2026</strong></span>
+                <span>Fecha Reporte: <strong className="font-bold">{currentDate}</strong></span>
               </div>
 
               <div className="flex items-center gap-2 bg-paper-dark border border-ink px-3 py-1.5 font-mono text-xs text-ink/90">

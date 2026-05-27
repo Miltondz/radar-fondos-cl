@@ -11,9 +11,13 @@ interface DynamicCalendarProps {
 }
 
 export default function DynamicCalendar({ onAddToStack, stackedFunds }: DynamicCalendarProps) {
-  // Current month displayed: 4 = May, 5 = June 2026
-  const [currentMonth, setCurrentMonth] = useState<4 | 5>(4); 
-  const [selectedDay, setSelectedDay] = useState<number | null>(27); // Default to today's date May 27, 2026
+  const _today = new Date();
+  const todayYear = _today.getFullYear();
+  const todayMonth = _today.getMonth();
+  const todayDay = _today.getDate();
+  const [year, setYear] = useState(todayYear);
+  const [month, setMonth] = useState(todayMonth);
+  const [selectedDay, setSelectedDay] = useState<number | null>(todayDay);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopyCode = (text: string, id: string) => {
@@ -22,18 +26,17 @@ export default function DynamicCalendar({ onAddToStack, stackedFunds }: DynamicC
     setTimeout(() => setCopiedId(null), 1800);
   };
 
-  const monthName = currentMonth === 4 ? "Mayo 2026" : "Junio 2026";
-
-  // Pre-calculated dates details for Mayo 2026 (Starts on Friday, 31 days)
-  // June 2026 (Starts on Monday, 30 days)
-  const daysInMonth = currentMonth === 4 ? 31 : 30;
-  const startOffset = currentMonth === 4 ? 4 : 0; // index of starting day (0 = Monday, 4 = Friday)
+  const _d = new Date(year, month, 1);
+  const _mes = _d.toLocaleDateString("es-CL", { month: "long" });
+  const monthName = `${_mes.charAt(0).toUpperCase() + _mes.slice(1)} ${year}`;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startOffset = (new Date(year, month, 1).getDay() + 6) % 7; // Mon=0 … Sun=6
 
   // Map dates in month to items
   const itemsByDay = useMemo(() => {
     const mapping: Record<number, Fund[]> = {};
-    const yearStr = "2026";
-    const monthStr = String(currentMonth + 1).padStart(2, "0");
+    const yearStr = String(year);
+    const monthStr = String(month + 1).padStart(2, "0");
 
     ALL_FUNDS.forEach((item) => {
       if (item.deadlineISO) {
@@ -49,7 +52,7 @@ export default function DynamicCalendar({ onAddToStack, stackedFunds }: DynamicC
       }
     });
     return mapping;
-  }, [currentMonth]);
+  }, [year, month]);
 
   // Combine headers
   const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -106,8 +109,9 @@ export default function DynamicCalendar({ onAddToStack, stackedFunds }: DynamicC
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => {
-                setCurrentMonth((prev) => (prev === 5 ? 4 : 5));
-                setSelectedDay((prev) => (prev ? (prev > 30 ? 30 : prev) : null));
+                setSelectedDay(null);
+                if (month === 0) { setYear(y => y - 1); setMonth(11); }
+                else setMonth(m => m - 1);
               }}
               className="p-1 border border-ink bg-paper hover:bg-paper-dark transition-colors cursor-pointer"
               title="Mes Anterior"
@@ -119,8 +123,9 @@ export default function DynamicCalendar({ onAddToStack, stackedFunds }: DynamicC
             </span>
             <button
               onClick={() => {
-                setCurrentMonth((prev) => (prev === 4 ? 5 : 4));
-                setSelectedDay((prev) => (prev ? (prev > 30 ? 30 : prev) : null));
+                setSelectedDay(null);
+                if (month === 11) { setYear(y => y + 1); setMonth(0); }
+                else setMonth(m => m + 1);
               }}
               className="p-1 border border-ink bg-paper hover:bg-paper-dark transition-colors cursor-pointer"
               title="Mes Siguiente"
@@ -142,7 +147,7 @@ export default function DynamicCalendar({ onAddToStack, stackedFunds }: DynamicC
           {gridCells.map((cell, index) => {
             const isSelected = selectedDay === cell.day;
             const hasDeadlines = cell.items.length > 0;
-            const isToday = currentMonth === 4 && cell.day === 27; // May 27 modeled as "Today" in dataset context
+            const isToday = year === todayYear && month === todayMonth && cell.day === todayDay;
 
             return (
               <div
