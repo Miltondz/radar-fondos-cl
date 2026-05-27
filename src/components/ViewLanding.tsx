@@ -45,23 +45,23 @@ export default function ViewLanding({
       {
         title: "Pilar 1: Financiamiento Crítico",
         item: ALL_FUNDS.find((f) => f.id === "sercotec-abeja-2026")!,
-        tag: "Mañana Cierre / Hoy Acción",
-        badgeColor: "bg-danger text-white bg-alert border-ink",
+        tag: "Convocatoria Activa",
+        badgeColor: "bg-alert text-white border-ink",
         desc: "Línea rápida de capital semilla no reembolsable exclusivo para liderazgos femeninos."
       },
       {
-        title: "Pilar 2: Licitación en Caliente",
-        item: ALL_FUNDS.find((f) => f.id === "lic-providencia-2026")!,
-        tag: "Compra Ágil Express",
+        title: "Pilar 2: Licitación Referente",
+        item: ALL_FUNDS.find((f) => f.id === "lic-isp-sistemas-informaticos")!,
+        tag: "Referencia Mercado Público",
         badgeColor: "bg-accent-blue text-white",
-        desc: "Contrato tecnológico directo para soporte y desarrollo web de servidores en Providencia."
+        desc: "Licitación de sistemas informáticos del ISP — referente para contratos TI de gran escala en el Estado."
       },
       {
         title: "Pilar 3: Hackaton de Entrada",
-        item: ALL_FUNDS.find((f) => f.id === "hack-women-tech-2026")!,
-        tag: "Cierra Mañana",
+        item: ALL_FUNDS.find((f) => f.id === "hack-academia-hacklab-2026")!,
+        tag: "Abierto — Postula Ahora",
         badgeColor: "bg-accent-purple text-white",
-        desc: "Competencia técnica express respaldada por Google y aceleradoras de Chile con fondos líquidos."
+        desc: "Competencia presencial en Santiago respaldada por Ciudad Emergente y Google con financiamiento real."
       }
     ].filter((p) => !!p.item);
   }, []);
