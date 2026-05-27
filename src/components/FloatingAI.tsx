@@ -10,7 +10,7 @@ interface FloatingAIProps {
   currentView: string;
 }
 
-const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+const OR_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined;
 
 const VIEW_LABELS: Record<string, string> = {
   landing: "Inicio",
@@ -45,7 +45,7 @@ export default function FloatingAI({ profile, stackedFunds, currentView }: Float
                 <Sparkles className="h-4 w-4 text-white shrink-0" />
                 <div>
                   <span className="text-[11px] font-mono font-black uppercase tracking-wider text-white block leading-none">
-                    Asesor IA Gemini
+                    Asesor IA — DeepSeek V3
                   </span>
                   <span className="text-[9px] font-mono text-white/70 uppercase tracking-widest block mt-0.5">
                     Contexto: {VIEW_LABELS[currentView] || currentView}
@@ -63,7 +63,7 @@ export default function FloatingAI({ profile, stackedFunds, currentView }: Float
 
             {/* Panel content */}
             <div className="overflow-y-auto flex-1">
-              {GEMINI_KEY ? (
+              {OR_KEY ? (
                 <GeminiPanel
                   profile={profile}
                   stackedFunds={stackedFunds}
@@ -76,8 +76,8 @@ export default function FloatingAI({ profile, stackedFunds, currentView }: Float
                     <Bot className="h-5 w-5 shrink-0 mt-0.5 text-ink/60" />
                     <div>
                       <strong className="font-sans font-bold block mb-1">API key no configurada</strong>
-                      <p>Agrega <code className="bg-paper px-1 font-mono text-[10px] border border-ink/30">VITE_GEMINI_API_KEY</code> en las variables de entorno de Netlify y redespliega.</p>
-                      <p className="mt-1 text-ink/70">Obtén clave gratuita en <strong>aistudio.google.com</strong></p>
+                      <p>Agrega <code className="bg-paper px-1 font-mono text-[10px] border border-ink/30">VITE_OPENROUTER_API_KEY</code> en las variables de entorno de Netlify y redespliega.</p>
+                      <p className="mt-1 text-ink/70">Obtén clave en <strong>openrouter.ai</strong> → Keys</p>
                     </div>
                   </div>
                 </div>
@@ -93,11 +93,11 @@ export default function FloatingAI({ profile, stackedFunds, currentView }: Float
         className={`pointer-events-auto flex items-center gap-2 px-4 py-3 border-2 border-ink font-mono font-black uppercase text-xs shadow-[4px_4px_0px_#000] hover:translate-y-[-1px] active:translate-y-[0.5px] transition-all cursor-pointer select-none ${
           isOpen
             ? "bg-ink text-paper"
-            : GEMINI_KEY
+            : OR_KEY
             ? "bg-accent-purple text-white"
             : "bg-paper-dark text-ink/60"
         }`}
-        title={GEMINI_KEY ? "Abrir Asesor IA" : "Asesor IA — API key requerida"}
+        title={OR_KEY ? "Abrir Asesor IA" : "Asesor IA — API key requerida"}
       >
         {isOpen
           ? <><ChevronDown className="h-4 w-4" /> Cerrar IA</>

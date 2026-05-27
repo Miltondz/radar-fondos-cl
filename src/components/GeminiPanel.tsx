@@ -21,7 +21,8 @@ interface GeminiPanelProps {
   isCompact?: boolean;
 }
 
-const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+const OR_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined;
+const OR_MODEL = "deepseek/deepseek-chat-v3-0324:free";
 
 interface Message {
   role: "user" | "assistant";
@@ -62,7 +63,9 @@ PERFIL MILTON: socia_femenina=${profile.hasWoman} | SpA_constituida=${profile.ha
 PORTAFOLIO ACTIVO (${stackedFunds.length} fondos): ${stackedFunds.map(f => `${f.name} (${formatCLP(f.amountNumber)})`).join(" + ") || "vacío"}
 FINANCIAMIENTOS ACTIVOS (${financiamientos.length}): ${financiamientos.map(f => `${f.name}|${f.entity}|${formatCLP(f.amountNumber)}|cierre:${f.deadline}|reqMujer:${f.eligibilityGenderRequired}|reqSpA:${f.requiresSpA}|reqSII:${f.SIIRequired}`).join(" // ")}
 LICITACIONES (${licitaciones.length}): ${licitaciones.map(f => `${f.name}|${f.chileCode || ""}|${formatCLP(f.amountNumber)}|${f.organizer}`).join(" // ")}
-HACKATONES (${hackatones.length}): ${hackatones.map(f => `${f.name}|${f.organizer}|${formatCLP(f.amountNumber)}|cierre:${f.deadline}`).join(" // ")}`;
+HACKATONES (${hackatones.length}): ${hackatones.map(f => `${f.name}|${f.organizer}|${formatCLP(f.amountNumber)}|cierre:${f.deadline}`).join(" // ")}
+
+Eres un asesor experto en financiamiento gubernamental para startups tecnológicas chilenas. Usa el contexto del sistema para respuestas precisas y personalizadas. Responde siempre en español, de forma concisa y accionable. Cita nombres específicos de fondos, montos y fechas del contexto cuando sea relevante.`;
 }
 
 export default function GeminiPanel({ profile, stackedFunds, currentView, isCompact = false }: GeminiPanelProps) {
@@ -73,7 +76,7 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const sendMessage = async (userText: string) => {
-    if (!userText.trim() || !GEMINI_KEY) return;
+    if (!userText.trim() || !OR_KEY) return;
     setError(null);
     const userMsg: Message = { role: "user", content: userText };
     const allMessages = [...messages, userMsg];
@@ -84,29 +87,25 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
     try {
       const systemCtx = buildSystemContext(profile, stackedFunds, currentView);
       const payload = {
-        contents: [
-          {
-            role: "user",
-            parts: [{
-              text: `${systemCtx}\n\n---\nEres un asesor experto en financiamiento gubernamental para startups tecnológicas chilenas. Usa el contexto del sistema para respuestas precisas y personalizadas. Responde siempre en español, de forma concisa y accionable. Cita nombres específicos de fondos, montos y fechas del contexto cuando sea relevante.`
-            }]
-          },
-          {
-            role: "model",
-            parts: [{ text: "Entendido. Soy tu asesor de financiamiento para startups TI chilenas. Tengo cargado tu perfil y todos los fondos disponibles. ¿En qué te ayudo?" }]
-          },
-          ...allMessages.map(m => ({
-            role: m.role === "user" ? "user" : "model",
-            parts: [{ text: m.content }]
-          }))
+        model: OR_MODEL,
+        messages: [
+          { role: "system", content: systemCtx },
+          ...allMessages.map(m => ({ role: m.role, content: m.content }))
         ],
-        generationConfig: { temperature: 0.65, maxOutputTokens: 1200 }
+        temperature: 0.65,
+        max_tokens: 1200,
       };
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }
-      );
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${OR_KEY}`,
+          "HTTP-Referer": "https://radar-fondos-cl.netlify.app",
+          "X-Title": "Radar Fondos CL",
+        },
+        body: JSON.stringify(payload),
+      });
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -114,18 +113,18 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
       }
 
       const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sin respuesta del modelo.";
+      const text = data.choices?.[0]?.message?.content || "Sin respuesta del modelo.";
       setMessages(prev => [...prev, { role: "assistant", content: text }]);
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Error de conexión con Gemini API";
+      const msg = e instanceof Error ? e.message : "Error de conexión con OpenRouter";
       setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  if (!GEMINI_KEY) {
+  if (!OR_KEY) {
     return (
       <div className="bg-paper border-2 border-ink p-8 shadow-[4px_4px_0px_#1a1a1a] space-y-6">
         <div className="flex items-center gap-3">
@@ -133,7 +132,7 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
             <Bot className="h-7 w-7" />
           </div>
           <div>
-            <h3 className="font-sans font-black text-2xl text-ink">Asesor IA — Gemini 2.0 Flash</h3>
+            <h3 className="font-sans font-black text-2xl text-ink">Asesor IA — DeepSeek V3</h3>
             <p className="text-xs font-mono text-ink/60 uppercase tracking-wider mt-0.5">Configuración de API requerida</p>
           </div>
         </div>
@@ -141,9 +140,9 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
           <AlertCircle className="h-6 w-6 text-ink shrink-0 mt-0.5" />
           <div className="text-sm font-serif leading-relaxed space-y-3">
             <strong className="font-sans font-bold block text-base">Clave API no configurada</strong>
-            <p>Para activar el Asesor IA, agrega tu clave de Google AI Studio al archivo <code className="bg-paper px-1.5 py-0.5 font-mono text-xs border border-ink/40">.env.local</code> en la raíz del proyecto:</p>
-            <pre className="bg-paper font-mono text-xs p-3 border border-ink/30 overflow-x-auto">VITE_GEMINI_API_KEY=tu_clave_aqui</pre>
-            <p className="text-xs">Obtén tu clave gratuita en <strong>aistudio.google.com</strong> → API Keys → Create API Key. Luego reinicia el servidor de desarrollo.</p>
+            <p>Para activar el Asesor IA, agrega tu clave de OpenRouter al archivo <code className="bg-paper px-1.5 py-0.5 font-mono text-xs border border-ink/40">.env.local</code> en la raíz del proyecto:</p>
+            <pre className="bg-paper font-mono text-xs p-3 border border-ink/30 overflow-x-auto">VITE_OPENROUTER_API_KEY=tu_clave_aqui</pre>
+            <p className="text-xs">Obtén tu clave en <strong>openrouter.ai</strong> → Keys → Create Key. El modelo <code className="font-mono">deepseek/deepseek-chat-v3-0324:free</code> es gratuito. Luego reinicia el servidor de desarrollo.</p>
           </div>
         </div>
         <div className="bg-paper-dark border border-ink/30 p-4 text-xs font-serif text-ink/75 leading-relaxed">
@@ -165,7 +164,7 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
           </div>
           <div>
             <span className="block text-[9px] font-mono font-bold tracking-widest text-ink/60 uppercase">Inteligencia Artificial Estratégica</span>
-            <h3 className="font-serif font-black text-xl text-ink leading-none">Asesor Gemini 2.0 Flash</h3>
+            <h3 className="font-serif font-black text-xl text-ink leading-none">Asesor IA — DeepSeek V3</h3>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -230,7 +229,7 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
                 : "bg-paper-dark text-ink border-ink/25 border-l-4 border-l-accent-purple"
             }`}>
               {msg.role === "assistant" && (
-                <span className="text-[9px] font-mono font-bold uppercase text-accent-purple block mb-2">Asesor Gemini →</span>
+                <span className="text-[9px] font-mono font-bold uppercase text-accent-purple block mb-2">Asesor IA →</span>
               )}
               <p className="whitespace-pre-wrap">{msg.content}</p>
             </div>
