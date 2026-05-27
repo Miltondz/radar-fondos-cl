@@ -1,0 +1,6 @@
+{
+  "name": "Radar Fondos CL",
+  "description": "Reporte de Financiamiento y Convocatorias Urgentes para Startups TI en Chile.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
