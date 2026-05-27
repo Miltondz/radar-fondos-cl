@@ -4,9 +4,21 @@ import { Fund, MiltonProfile } from "../types";
 import { ALL_FUNDS } from "../data";
 import { formatCLP } from "../utils";
 
+const VIEW_LABELS: Record<string, string> = {
+  landing: "Resumen e Inicio",
+  financiamientos: "Subsidios y Financiamientos",
+  licitaciones: "Licitaciones y Compras Públicas",
+  hackatones: "Hackatones y Desafíos",
+  roadmap: "Plan de Acción",
+  agenda: "Agenda y Timeline",
+  ia: "Asesor IA (vista completa)",
+};
+
 interface GeminiPanelProps {
   profile: MiltonProfile;
   stackedFunds: Fund[];
+  currentView?: string;
+  isCompact?: boolean;
 }
 
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
@@ -39,11 +51,13 @@ const PRESET_PROMPTS = [
   },
 ];
 
-function buildSystemContext(profile: MiltonProfile, stackedFunds: Fund[]) {
+function buildSystemContext(profile: MiltonProfile, stackedFunds: Fund[], currentView?: string) {
   const financiamientos = ALL_FUNDS.filter(f => f.type === "financiamiento" && f.urgency !== "CLOSED");
   const licitaciones = ALL_FUNDS.filter(f => f.type === "licitacion");
   const hackatones = ALL_FUNDS.filter(f => f.type === "hackaton");
+  const viewLabel = currentView ? (VIEW_LABELS[currentView] || currentView) : "Desconocida";
   return `=== CONTEXTO RADAR FONDOS CL — Chile, Mayo 2026 ===
+VISTA_ACTIVA: ${viewLabel} — el usuario está revisando este panel ahora mismo.
 PERFIL MILTON: socia_femenina=${profile.hasWoman} | SpA_constituida=${profile.hasSpA} | ventas_iniciadas=${profile.hasSales} | SII_iniciado=${profile.hasSiiInitiated}
 PORTAFOLIO ACTIVO (${stackedFunds.length} fondos): ${stackedFunds.map(f => `${f.name} (${formatCLP(f.amountNumber)})`).join(" + ") || "vacío"}
 FINANCIAMIENTOS ACTIVOS (${financiamientos.length}): ${financiamientos.map(f => `${f.name}|${f.entity}|${formatCLP(f.amountNumber)}|cierre:${f.deadline}|reqMujer:${f.eligibilityGenderRequired}|reqSpA:${f.requiresSpA}|reqSII:${f.SIIRequired}`).join(" // ")}
@@ -51,7 +65,7 @@ LICITACIONES (${licitaciones.length}): ${licitaciones.map(f => `${f.name}|${f.ch
 HACKATONES (${hackatones.length}): ${hackatones.map(f => `${f.name}|${f.organizer}|${formatCLP(f.amountNumber)}|cierre:${f.deadline}`).join(" // ")}`;
 }
 
-export default function GeminiPanel({ profile, stackedFunds }: GeminiPanelProps) {
+export default function GeminiPanel({ profile, stackedFunds, currentView, isCompact = false }: GeminiPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -68,7 +82,7 @@ export default function GeminiPanel({ profile, stackedFunds }: GeminiPanelProps)
     setLoading(true);
 
     try {
-      const systemCtx = buildSystemContext(profile, stackedFunds);
+      const systemCtx = buildSystemContext(profile, stackedFunds, currentView);
       const payload = {
         contents: [
           {
@@ -141,7 +155,7 @@ export default function GeminiPanel({ profile, stackedFunds }: GeminiPanelProps)
   }
 
   return (
-    <div className="bg-paper border-2 border-ink shadow-[4px_4px_0px_#1a1a1a] flex flex-col" style={{ minHeight: "620px" }}>
+    <div className={`bg-paper ${isCompact ? "" : "border-2 border-ink shadow-[4px_4px_0px_#1a1a1a]"} flex flex-col`} style={{ minHeight: isCompact ? "unset" : "620px" }}>
 
       {/* Header bar */}
       <div className="border-b-2 border-ink p-5 flex items-center justify-between">
@@ -199,7 +213,7 @@ export default function GeminiPanel({ profile, stackedFunds }: GeminiPanelProps)
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar" style={{ minHeight: "320px", maxHeight: "440px" }}>
+      <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar" style={{ minHeight: isCompact ? "200px" : "320px", maxHeight: isCompact ? "320px" : "440px" }}>
         {messages.length === 0 && (
           <div className="text-center py-12">
             <Bot className="mx-auto h-12 w-12 text-ink/25 mb-4" />

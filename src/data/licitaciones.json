@@ -27,7 +27,8 @@
     "referenceUrlText": "mercadopublico.cl → Código 813-53-LP26",
     "type": "licitacion",
     "chileCode": "813-53-LP26",
-    "organizer": "Instituto de Salud Pública de Chile (ISP)"
+    "organizer": "Instituto de Salud Pública de Chile (ISP)",
+    "address": "Marathon 1000, Ñuñoa, Santiago, Chile"
   },
   {
     "id": "lic-las-condes-participacion-2026",
@@ -57,7 +58,8 @@
     "referenceUrlText": "mercadopublico.cl → Código 2345-64-LE26",
     "type": "licitacion",
     "chileCode": "2345-64-LE26",
-    "organizer": "I. Municipalidad de Las Condes"
+    "organizer": "I. Municipalidad de Las Condes",
+    "address": "Apoquindo 3458, Las Condes, Santiago, Chile"
   },
   {
     "id": "lic-providencia-permisos-bnup",
@@ -87,7 +89,8 @@
     "referenceUrlText": "mercadopublico.cl → Código 2490-34-LE26",
     "type": "licitacion",
     "chileCode": "2490-34-LE26",
-    "organizer": "I. Municipalidad de Providencia"
+    "organizer": "I. Municipalidad de Providencia",
+    "address": "Pedro de Valdivia 360, Providencia, Santiago, Chile"
   },
   {
     "id": "lic-vitacura-talleres-2026",
@@ -117,7 +120,8 @@
     "referenceUrlText": "mercadopublico.cl → Código 1480209-13-L126",
     "type": "licitacion",
     "chileCode": "1480209-13-L126",
-    "organizer": "I. Municipalidad de Vitacura"
+    "organizer": "I. Municipalidad de Vitacura",
+    "address": "Av. Bicentenario 3902, Vitacura, Santiago, Chile"
   },
   {
     "id": "lic-ejercito-plataforma-personal",
@@ -147,6 +151,7 @@
     "referenceUrlText": "mercadopublico.cl → Código 647431-4-LR26",
     "type": "licitacion",
     "chileCode": "647431-4-LR26",
-    "organizer": "División Logística del Ejército de Chile"
+    "organizer": "División Logística del Ejército de Chile",
+    "address": "Blanco Encalada 1550, Santiago Centro, Chile"
   }
 ]

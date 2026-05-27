@@ -49,6 +49,7 @@ export interface Fund {
   chileCode?: string; // Codigo de licitacion o ID de Hackaton
   organizer?: string; // Organismo convocante
   deadlineISO?: string; // ISO date layout e.g. 2026-05-27
+  address?: string; // Dirección física del organismo o sede del evento
 }
 
 export interface MiltonProfile {

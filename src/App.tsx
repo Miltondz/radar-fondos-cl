@@ -13,6 +13,7 @@ import ViewLicitaciones from "./components/ViewLicitaciones";
 import ViewHackatones from "./components/ViewHackatones";
 import ViewAgenda from "./components/ViewAgenda";
 import GeminiPanel from "./components/GeminiPanel";
+import FloatingAI from "./components/FloatingAI";
 import PlanDeAccion from "./components/PlanDeAccion";
 import Resources from "./components/Resources";
 
@@ -348,6 +349,9 @@ export default function App() {
         </div>
 
       </main>
+
+      {/* Floating AI — visible in all views */}
+      <FloatingAI profile={profile} stackedFunds={stackedFunds} currentView={activeTab} />
 
       {/* Main Footer Block */}
       <footer className="w-full bg-paper-dark border-t-2 border-ink py-10 text-center" id="radar-footer">

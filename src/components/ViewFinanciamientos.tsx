@@ -6,6 +6,7 @@ import { ALL_FUNDS } from "../data";
 import { formatCLP, getGoogleCalendarUrl } from "../utils";
 import CalendarButton from "./CalendarButton";
 import EligibilityChecklist from "./EligibilityChecklist";
+import MapWidget from "./MapWidget";
 
 interface ViewFinanciamientosProps {
   profile: MiltonProfile;
@@ -373,6 +374,14 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
                           </div>
 
                         </div>
+
+                        {/* Map widget if address available */}
+                        {fund.address && (
+                          <div>
+                            <strong className="block text-[10px] font-mono uppercase tracking-widest text-ink/65 mb-2">Ubicación del Organismo:</strong>
+                            <MapWidget address={fund.address} />
+                          </div>
+                        )}
 
                         {/* Interactive Buttons footer inside drawer */}
                         <div className="flex gap-2 items-center pt-4 border-t border-ink/20 flex-wrap">

@@ -6,6 +6,7 @@ import { ALL_FUNDS } from "../data";
 import { formatCLP, getGoogleCalendarUrl } from "../utils";
 import CalendarButton from "./CalendarButton";
 import EligibilityChecklist from "./EligibilityChecklist";
+import MapWidget from "./MapWidget";
 
 interface ViewLicitacionesProps {
   profile: MiltonProfile;
@@ -288,6 +289,14 @@ export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds }
                           </div>
 
                         </div>
+
+                        {/* Map widget if address available */}
+                        {lic.address && (
+                          <div>
+                            <strong className="block text-[10px] font-mono uppercase tracking-widest text-ink/65 mb-2">Ubicación del Organismo Contratante:</strong>
+                            <MapWidget address={lic.address} />
+                          </div>
+                        )}
 
                         {/* Interactive actions */}
                         <div className="flex gap-2 items-center pt-4 border-t border-ink/20 flex-wrap">
