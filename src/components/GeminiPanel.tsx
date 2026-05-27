@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { Send, Sparkles, AlertCircle, Bot, Trash2 } from "lucide-react";
+import OpenAI from "openai";
 import { Fund, MiltonProfile } from "../types";
 import { ALL_FUNDS } from "../data";
 import { formatCLP } from "../utils";
@@ -22,7 +23,12 @@ interface GeminiPanelProps {
 }
 
 const OR_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined;
-const OR_MODEL = "deepseek/deepseek-chat-v3-0324:free";
+
+const MODELS = [
+  "deepseek/deepseek-v4-flash:free",
+  "minimax/minimax-m2.5:free",
+  "nvidia/nemotron-3-super-120b-a12b:free",
+] as const;
 
 interface Message {
   role: "user" | "assistant";
@@ -75,8 +81,20 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const client = OR_KEY
+    ? new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: OR_KEY,
+        dangerouslyAllowBrowser: true,
+        defaultHeaders: {
+          "HTTP-Referer": "https://radar-fondos-cl.netlify.app",
+          "X-Title": "Radar Fondos CL",
+        },
+      })
+    : null;
+
   const sendMessage = async (userText: string) => {
-    if (!userText.trim() || !OR_KEY) return;
+    if (!userText.trim() || !client) return;
     setError(null);
     const userMsg: Message = { role: "user", content: userText };
     const allMessages = [...messages, userMsg];
@@ -84,44 +102,35 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
     setInput("");
     setLoading(true);
 
-    try {
-      const systemCtx = buildSystemContext(profile, stackedFunds, currentView);
-      const payload = {
-        model: OR_MODEL,
-        messages: [
-          { role: "system", content: systemCtx },
-          ...allMessages.map(m => ({ role: m.role, content: m.content }))
-        ],
-        temperature: 0.65,
-        max_tokens: 1200,
-      };
+    const systemCtx = buildSystemContext(profile, stackedFunds, currentView);
+    const chatMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      { role: "system", content: systemCtx },
+      ...allMessages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
+    ];
 
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${OR_KEY}`,
-          "HTTP-Referer": "https://radar-fondos-cl.netlify.app",
-          "X-Title": "Radar Fondos CL",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData?.error?.message || `Error HTTP ${res.status}`);
+    let lastError: Error | null = null;
+    for (const model of MODELS) {
+      try {
+        const completion = await client.chat.completions.create({
+          model,
+          messages: chatMessages,
+          temperature: 0.65,
+          max_tokens: 1200,
+        });
+        const text = completion.choices[0]?.message?.content || "Sin respuesta del modelo.";
+        setMessages(prev => [...prev, { role: "assistant", content: text }]);
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+        lastError = null;
+        break;
+      } catch (e: unknown) {
+        lastError = e instanceof Error ? e : new Error("Error desconocido");
       }
-
-      const data = await res.json();
-      const text = data.choices?.[0]?.message?.content || "Sin respuesta del modelo.";
-      setMessages(prev => [...prev, { role: "assistant", content: text }]);
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Error de conexión con OpenRouter";
-      setError(msg);
-    } finally {
-      setLoading(false);
     }
+
+    if (lastError) {
+      setError(lastError.message);
+    }
+    setLoading(false);
   };
 
   if (!OR_KEY) {
@@ -142,7 +151,7 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
             <strong className="font-sans font-bold block text-base">Clave API no configurada</strong>
             <p>Para activar el Asesor IA, agrega tu clave de OpenRouter al archivo <code className="bg-paper px-1.5 py-0.5 font-mono text-xs border border-ink/40">.env.local</code> en la raíz del proyecto:</p>
             <pre className="bg-paper font-mono text-xs p-3 border border-ink/30 overflow-x-auto">VITE_OPENROUTER_API_KEY=tu_clave_aqui</pre>
-            <p className="text-xs">Obtén tu clave en <strong>openrouter.ai</strong> → Keys → Create Key. El modelo <code className="font-mono">deepseek/deepseek-chat-v3-0324:free</code> es gratuito. Luego reinicia el servidor de desarrollo.</p>
+            <p className="text-xs">Obtén tu clave en <strong>openrouter.ai</strong> → Keys → Create Key. El modelo <code className="font-mono">deepseek/deepseek-v4-flash:free</code> es gratuito. Luego reinicia el servidor de desarrollo.</p>
           </div>
         </div>
         <div className="bg-paper-dark border border-ink/30 p-4 text-xs font-serif text-ink/75 leading-relaxed">
