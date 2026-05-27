@@ -45,7 +45,7 @@ export default function FloatingAI({ profile, stackedFunds, currentView }: Float
                 <Sparkles className="h-4 w-4 text-white shrink-0" />
                 <div>
                   <span className="text-[11px] font-mono font-black uppercase tracking-wider text-white block leading-none">
-                    Asesor IA — DeepSeek V3
+                    Asesor IA — Gemini 2.5 Flash
                   </span>
                   <span className="text-[9px] font-mono text-white/70 uppercase tracking-widest block mt-0.5">
                     Contexto: {VIEW_LABELS[currentView] || currentView}

@@ -25,6 +25,7 @@ interface GeminiPanelProps {
 const OR_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined;
 
 const MODELS = [
+  "google/gemini-2.5-flash-lite:free",
   "deepseek/deepseek-v4-flash:free",
   "minimax/minimax-m2.5:free",
   "nvidia/nemotron-3-super-120b-a12b:free",
@@ -109,6 +110,7 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
     ];
 
     let lastError: Error | null = null;
+    let allRateLimited = true;
     for (const model of MODELS) {
       try {
         const completion = await client.chat.completions.create({
@@ -121,14 +123,23 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
         setMessages(prev => [...prev, { role: "assistant", content: text }]);
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
         lastError = null;
+        allRateLimited = false;
         break;
       } catch (e: unknown) {
+        const isRateLimit =
+          (e instanceof OpenAI.APIError && e.status === 429) ||
+          (e instanceof Error && (e.message.includes("429") || e.message.toLowerCase().includes("rate limit")));
+        if (!isRateLimit) allRateLimited = false;
         lastError = e instanceof Error ? e : new Error("Error desconocido");
       }
     }
 
     if (lastError) {
-      setError(lastError.message);
+      if (allRateLimited) {
+        setError("Límite de velocidad alcanzado en todos los modelos gratuitos. Espera 30–60 segundos e intenta de nuevo. Si el problema persiste, agrega créditos en openrouter.ai para eliminar el rate limit.");
+      } else {
+        setError(lastError.message);
+      }
     }
     setLoading(false);
   };
@@ -141,7 +152,7 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
             <Bot className="h-7 w-7" />
           </div>
           <div>
-            <h3 className="font-sans font-black text-2xl text-ink">Asesor IA — DeepSeek V3</h3>
+            <h3 className="font-sans font-black text-2xl text-ink">Asesor IA — Gemini 2.5 Flash</h3>
             <p className="text-xs font-mono text-ink/60 uppercase tracking-wider mt-0.5">Configuración de API requerida</p>
           </div>
         </div>
@@ -173,7 +184,7 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
           </div>
           <div>
             <span className="block text-[9px] font-mono font-bold tracking-widest text-ink/60 uppercase">Inteligencia Artificial Estratégica</span>
-            <h3 className="font-serif font-black text-xl text-ink leading-none">Asesor IA — DeepSeek V3</h3>
+            <h3 className="font-serif font-black text-xl text-ink leading-none">Asesor IA — Gemini 2.5 Flash</h3>
           </div>
         </div>
         <div className="flex items-center gap-2">
