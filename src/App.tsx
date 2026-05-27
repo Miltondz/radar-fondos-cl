@@ -79,6 +79,18 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<"landing" | "financiamientos" | "licitaciones" | "hackatones" | "roadmap">("landing");
 
+  useEffect(() => {
+    try { localStorage.setItem("milton_radar_profile", JSON.stringify(profile)); } catch (_) {}
+  }, [profile]);
+
+  useEffect(() => {
+    try { localStorage.setItem("milton_radar_stacked", JSON.stringify(stackedFunds.map(f => f.id))); } catch (_) {}
+  }, [stackedFunds]);
+
+  useEffect(() => {
+    try { localStorage.setItem("milton_radar_roadmap_ticks", JSON.stringify(completedSteps)); } catch (_) {}
+  }, [completedSteps]);
+
   // 3. Helper Interactions
   const handleAddToStack = (item: Fund) => {
     if (!stackedFunds.some(f => f.id === item.id)) {
@@ -135,7 +147,7 @@ export default function App() {
       <div className="h-1 bg-ink w-full" />
 
       {/* Main Brand Logo & Alerts Header */}
-      <Header currentDate="2026-05-27" criticalCount={criticalCount} />
+      <Header currentDate={new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })} criticalCount={criticalCount} />
 
       {/* Primary Responsive Workspace */}
       <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 flex-1 flex flex-col gap-6">

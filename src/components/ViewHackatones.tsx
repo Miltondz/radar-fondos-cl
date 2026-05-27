@@ -16,7 +16,7 @@ export default function ViewHackatones({ profile, onAddToStack, stackedFunds }: 
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "PREMIO_EFECTIVO" | "TECNOLOGICO">("TODOS");
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [expandedHackId, setExpandedHackId] = useState<string | null>("hack-women-tech-2026");
+  const [expandedHackId, setExpandedHackId] = useState<string | null>("hack-academia-hacklab-2026");
 
   const handleCopyCode = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -61,7 +61,7 @@ export default function ViewHackatones({ profile, onAddToStack, stackedFunds }: 
           // Award size >= 10M
           return hack.amountNumber >= 10000000;
         case "TECNOLOGICO":
-          return hack.category.toLowerCase().includes("ai") || hack.category.toLowerCase().includes("desafío");
+          return hack.category.toLowerCase().includes("ia") || hack.category.toLowerCase().includes("global") || hack.category.toLowerCase().includes("latam");
         case "TODOS":
         default:
           return true;

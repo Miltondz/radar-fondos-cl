@@ -16,7 +16,7 @@ export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds }
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "COMPRA_AGIL" | "PUBLICO" | "CONVENIO_MARCO">("TODOS");
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [expandedLicId, setExpandedLicId] = useState<string | null>("lic-providencia-2026");
+  const [expandedLicId, setExpandedLicId] = useState<string | null>("lic-las-condes-participacion-2026");
 
   const handleCopyCode = (text: string, id: string) => {
     navigator.clipboard.writeText(text);

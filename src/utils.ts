@@ -28,7 +28,12 @@ export function getGoogleCalendarUrl(item: {
   
   // Format dates: YYYYMMDD/YYYYMMDD for whole-day events
   // Let's use the provided deadlineISO, e.g., "2026-05-27" -> "20260527/20260528"
-  let datePart = "20260527/20260528";
+  const _now = new Date();
+  const _tomorrow = new Date(_now);
+  _tomorrow.setDate(_now.getDate() + 1);
+  const _pad = (n: number) => String(n).padStart(2, "0");
+  const _fmt = (d: Date) => `${d.getFullYear()}${_pad(d.getMonth() + 1)}${_pad(d.getDate())}`;
+  let datePart = `${_fmt(_now)}/${_fmt(_tomorrow)}`;
   if (item.deadlineISO) {
     const cleanDate = item.deadlineISO.replace(/-/g, "");
     if (cleanDate.length === 8) {
