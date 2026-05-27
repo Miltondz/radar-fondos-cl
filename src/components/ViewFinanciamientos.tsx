@@ -5,6 +5,7 @@ import { Fund, FundStatus, MiltonProfile, Entity } from "../types";
 import { ALL_FUNDS } from "../data";
 import { formatCLP, getGoogleCalendarUrl } from "../utils";
 import CalendarButton from "./CalendarButton";
+import EligibilityChecklist from "./EligibilityChecklist";
 
 interface ViewFinanciamientosProps {
   profile: MiltonProfile;
@@ -322,6 +323,11 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
                               <strong className="block text-[10px] font-mono uppercase tracking-widest text-alert/90 mb-1 font-bold">💡 Tip Estratégico de Postulación:</strong>
                               <p className="font-serif text-ink">{fund.tips}</p>
                             </div>
+
+                            <div>
+                              <strong className="block text-[10px] font-mono uppercase tracking-widest text-ink/65 mb-2">Tu Elegibilidad Actual:</strong>
+                              <EligibilityChecklist fund={fund} profile={profile} />
+                            </div>
                           </div>
 
                           {/* Right Col: Admin requirements list with copyable URLs */}
@@ -369,7 +375,16 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
                         </div>
 
                         {/* Interactive Buttons footer inside drawer */}
-                        <div className="flex gap-2 items-center pt-4 border-t border-ink/20">
+                        <div className="flex gap-2 items-center pt-4 border-t border-ink/20 flex-wrap">
+                          <a
+                            href={fund.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-5 py-2.5 bg-accent-green text-white font-mono font-black uppercase text-[11px] border-2 border-ink shadow-[3px_3px_0px_#000] hover:translate-y-[-1px] active:translate-y-[0.5px] transition-all inline-flex items-center gap-2 cursor-pointer"
+                          >
+                            POSTULAR AHORA
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
                           <button
                             onClick={() => onAddToStack(fund)}
                             disabled={isStacked}

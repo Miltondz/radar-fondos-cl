@@ -258,7 +258,7 @@ export default function ViewLanding({
                     stackedFunds={stackedFunds}
                     onRemoveFromStack={onRemoveFromStack}
                     onClearStack={onClearStack}
-                    hasWoman={profile.hasWoman}
+                    profile={profile}
                     onApplyPreset={onApplyPreset}
                   />
                 </div>

@@ -1,19 +1,29 @@
 import { motion } from "motion/react";
-import { Radar, Bell, ShieldCheck, Flame, Info } from "lucide-react";
+import { Flame } from "lucide-react";
+import { Fund } from "../types";
 
 interface HeaderProps {
   currentDate: string;
   criticalCount: number;
+  urgentFunds?: Fund[];
 }
 
-export default function Header({ currentDate, criticalCount }: HeaderProps) {
-  // Simple radar pulses data
-  const blips = [
-    { id: 1, label: "Abeja", angle: 45, r: 40, color: "bg-red-600", ping: true, desc: "Cierra hoy!" },
-    { id: 2, label: "CORFO RM", angle: 180, r: 75, color: "bg-red-600", ping: true, desc: "Cierra en 2 d" },
-    { id: 3, label: "Crea y Valida", angle: 300, r: 120, color: "bg-amber-600", ping: false, desc: "Borrador" },
-    { id: 4, label: "Inicia Mujeres", angle: 120, r: 160, color: "bg-amber-600", ping: false, desc: "Junio" },
-  ];
+const BLIP_ANGLES = [45, 180, 300, 120];
+const BLIP_RADII = [40, 75, 120, 160];
+
+export default function Header({ currentDate, criticalCount, urgentFunds = [] }: HeaderProps) {
+  const blips = urgentFunds.slice(0, 4).map((fund, i) => ({
+    id: i + 1,
+    label: fund.name.split(" ").slice(0, 2).join(" "),
+    angle: BLIP_ANGLES[i],
+    r: BLIP_RADII[i],
+    color: fund.urgency === "CRITICAL" ? "bg-red-600" : "bg-amber-500",
+    ping: fund.urgency === "CRITICAL",
+    desc: fund.deadline,
+  }));
+
+  const topFund = urgentFunds[0];
+  const secondFund = urgentFunds[1];
 
   return (
     <header className="relative w-full border-b-2 border-ink bg-paper pb-8 pt-10" id="radar-header">
@@ -114,13 +124,12 @@ export default function Header({ currentDate, criticalCount }: HeaderProps) {
 
         </div>
 
-        {/* Global Urgent Notice Ribbon in black background + white and amber font */}
-        <motion.div 
+        {/* Global Urgent Notice Ribbon */}
+        <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           className="mt-8 bg-ink border-2 border-ink text-paper p-5 relative overflow-hidden"
         >
-          {/* Subtle warning diagonal background label pattern for print theme */}
           <div className="absolute -right-3 -bottom-3 rotate-12 opacity-5 font-black text-6xl tracking-widest uppercase font-sans select-none pointer-events-none">
             EXTRA
           </div>
@@ -133,15 +142,28 @@ export default function Header({ currentDate, criticalCount }: HeaderProps) {
               <div>
                 <span className="text-[10px] uppercase font-mono tracking-widest text-paper/70 block">ACCIONAR HOY</span>
                 <span className="text-sm font-bold text-paper font-display tracking-wide flex items-center gap-1.5 mt-0.5">
-                  CRÍTICO: SERCOTEC Abeja cierra en menos de 24 horas
+                  {topFund
+                    ? `${topFund.urgency === "CRITICAL" ? "CRÍTICO" : "URGENTE"}: ${topFund.name} — ${topFund.deadline}`
+                    : "Convocatorias activas en curso — revisa el radar"
+                  }
                 </span>
                 <p className="text-xs text-paper/85 mt-1 max-w-3xl leading-snug">
-                  El fondo especial para mujeres de Sercotec cierra hoy <strong className="text-alert bg-paper px-1">27 de Mayo</strong> y Semilla Inicia RM el <strong className="text-warning font-bold">29 de Mayo</strong>. ¡Ajusta los switches del perfil de Milton en el panel de abajo para ver la simulación en tiempo real!
+                  {topFund ? (
+                    <>
+                      {topFund.description.substring(0, 110)}
+                      {topFund.description.length > 110 ? "..." : ""}
+                      {secondFund && (
+                        <> | También urgente: <strong className="text-warning">{secondFund.name}</strong> — cierre: <strong className="text-warning">{secondFund.deadline}</strong>.</>
+                      )}
+                    </>
+                  ) : (
+                    "Ajusta los switches del perfil de Milton para ver la simulación de elegibilidad en tiempo real."
+                  )}
                 </p>
               </div>
             </div>
             <div className="flex shrink-0 items-center justify-between sm:justify-center gap-2 border-t border-paper/20 sm:border-t-0 pt-3 sm:pt-0">
-              <span className="inline-flex h-2.5 w-2.5 bg-alert border border-paper" />
+              <span className="inline-flex h-2.5 w-2.5 bg-alert border border-paper animate-pulse" />
               <span className="text-xs text-paper font-mono tracking-wider font-bold">
                 {criticalCount} ALERTAS DE CIERRE
               </span>

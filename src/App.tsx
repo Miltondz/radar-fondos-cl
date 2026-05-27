@@ -11,6 +11,8 @@ import ViewLanding from "./components/ViewLanding";
 import ViewFinanciamientos from "./components/ViewFinanciamientos";
 import ViewLicitaciones from "./components/ViewLicitaciones";
 import ViewHackatones from "./components/ViewHackatones";
+import ViewAgenda from "./components/ViewAgenda";
+import GeminiPanel from "./components/GeminiPanel";
 import PlanDeAccion from "./components/PlanDeAccion";
 import Resources from "./components/Resources";
 
@@ -77,7 +79,7 @@ export default function App() {
     return [];
   });
 
-  const [activeTab, setActiveTab] = useState<"landing" | "financiamientos" | "licitaciones" | "hackatones" | "roadmap">("landing");
+  const [activeTab, setActiveTab] = useState<"landing" | "financiamientos" | "licitaciones" | "hackatones" | "roadmap" | "agenda" | "ia">("landing");
 
   useEffect(() => {
     try { localStorage.setItem("milton_radar_profile", JSON.stringify(profile)); } catch (_) {}
@@ -139,6 +141,12 @@ export default function App() {
   const countFinanciamientos = ALL_FUNDS.filter(f => f.type === "financiamiento").length;
   const countLicitaciones = ALL_FUNDS.filter(f => f.type === "licitacion").length;
   const countHackatones = ALL_FUNDS.filter(f => f.type === "hackaton").length;
+  const urgentFunds = ALL_FUNDS.filter(f => f.urgency === "CRITICAL" || f.urgency === "HIGH")
+    .sort((a, b) => {
+      const m: Record<string, number> = { CRITICAL: 1, HIGH: 2 };
+      return (m[a.urgency] || 9) - (m[b.urgency] || 9);
+    })
+    .slice(0, 4);
 
   return (
     <div className="min-h-screen bg-paper text-ink flex flex-col relative selection:bg-alert/35 selection:text-paper" id="radar-root">
@@ -147,7 +155,7 @@ export default function App() {
       <div className="h-1 bg-ink w-full" />
 
       {/* Main Brand Logo & Alerts Header */}
-      <Header currentDate={new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })} criticalCount={criticalCount} />
+      <Header currentDate={new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })} criticalCount={criticalCount} urgentFunds={urgentFunds} />
 
       {/* Primary Responsive Workspace */}
       <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 flex-1 flex flex-col gap-6">
@@ -158,7 +166,7 @@ export default function App() {
             <span>Milton Workspace</span>
             <span>/</span>
             <span className="font-bold text-ink">
-              {activeTab === "landing" ? "Inicio de Reporte" : activeTab === "financiamientos" ? "Fomento y Subsidios" : activeTab === "licitaciones" ? "Tender y Licitaciones" : activeTab === "hackatones" ? "Retos Avanzados" : "Plan de Acción"}
+              {activeTab === "landing" ? "Inicio de Reporte" : activeTab === "financiamientos" ? "Fomento y Subsidios" : activeTab === "licitaciones" ? "Tender y Licitaciones" : activeTab === "hackatones" ? "Retos Avanzados" : activeTab === "agenda" ? "Agenda y Timeline" : activeTab === "ia" ? "Asesor IA Gemini" : "Plan de Acción"}
             </span>
           </div>
 
@@ -221,13 +229,31 @@ export default function App() {
             ⚡ Hackatones ({countHackatones})
           </button>
           
-          <button 
+          <button
             onClick={() => setActiveTab("roadmap")}
             className={`flex-1 min-w-[150px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
               activeTab === "roadmap" ? "bg-ink text-paper font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
             }`}
           >
             🎯 Plan y Requisitos
+          </button>
+
+          <button
+            onClick={() => setActiveTab("agenda")}
+            className={`flex-1 min-w-[130px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
+              activeTab === "agenda" ? "bg-accent-blue text-white font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
+            }`}
+          >
+            📅 Agenda
+          </button>
+
+          <button
+            onClick={() => setActiveTab("ia")}
+            className={`flex-1 min-w-[120px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
+              activeTab === "ia" ? "bg-accent-purple text-white font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
+            }`}
+          >
+            🤖 Asesor IA
           </button>
         </div>
 
@@ -279,12 +305,27 @@ export default function App() {
 
               {activeTab === "roadmap" && (
                 <div className="space-y-10">
-                  <PlanDeAccion 
-                    completedSteps={completedSteps} 
-                    onToggleStep={handleToggleStep} 
+                  <PlanDeAccion
+                    completedSteps={completedSteps}
+                    onToggleStep={handleToggleStep}
                   />
                   <Resources profile={profile} />
                 </div>
+              )}
+
+              {activeTab === "agenda" && (
+                <ViewAgenda
+                  profile={profile}
+                  onAddToStack={handleAddToStack}
+                  stackedFunds={stackedFunds}
+                />
+              )}
+
+              {activeTab === "ia" && (
+                <GeminiPanel
+                  profile={profile}
+                  stackedFunds={stackedFunds}
+                />
               )}
             </motion.div>
           </AnimatePresence>
@@ -293,7 +334,7 @@ export default function App() {
         {/* Workspace Reset controls */}
         <div className="flex flex-col sm:flex-row justify-between items-center py-4 border-t-2 border-ink mt-8 text-ink/75 font-mono text-[9.5px] gap-4">
           <div>
-            <span>Radar Fondos CL • v4.0.0 (Santiago, Chile | Mayo 2026)</span>
+            <span>Radar Fondos CL • v4.1.0 (Santiago, Chile | {new Date().getFullYear()})</span>
           </div>
           <button
             onClick={handleResetWorkspace}

@@ -3,30 +3,37 @@ import {
   Plus, Trash2, Landmark, HelpCircle, CheckCircle, 
   AlertTriangle, ArrowRight, Layers, Sparkles, RefreshCw
 } from "lucide-react";
-import { Fund, Entity, FundStatus } from "../types";
+import { Fund, Entity, MiltonProfile } from "../types";
 
 interface StackerProps {
   stackedFunds: Fund[];
   onRemoveFromStack: (id: string) => void;
   onClearStack: () => void;
-  hasWoman: boolean;
+  profile: MiltonProfile;
   onApplyPreset: (ids: string[]) => void;
 }
 
-export default function Stacker({ 
-  stackedFunds, 
-  onRemoveFromStack, 
-  onClearStack, 
-  hasWoman,
+export default function Stacker({
+  stackedFunds,
+  onRemoveFromStack,
+  onClearStack,
+  profile,
   onApplyPreset
 }: StackerProps) {
 
-  // Dynamically calculate individual values considering Milton's female-founder advantage
   const getDynamicAmountTextAndValue = (fund: Fund): { text: string; val: number } => {
-    if (fund.id === "corfo-semilla-inicia-rm-2026" && hasWoman) {
+    if (fund.id === "corfo-semilla-inicia-rm-2026" && profile.hasWoman) {
       return { text: "$17.000.000 CLP (Beca de Género)", val: 17000000 };
     }
     return { text: fund.amount, val: fund.amountNumber };
+  };
+
+  const getFundEligibilityWarning = (fund: Fund): string | null => {
+    if (fund.eligibilityGenderRequired && !profile.hasWoman) return "Requiere socia fundadora";
+    if (fund.requiresSpA && !profile.hasSpA) return "Requiere SpA";
+    if (fund.SIIRequired && !profile.hasSiiInitiated) return "Requiere SII";
+    if (fund.eligibilitySalesRestricted && profile.hasSales) return "Requiere pre-revenue";
+    return null;
   };
 
   // Computes the math
@@ -220,6 +227,7 @@ export default function Stacker({
               <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-1">
                 {stackedFunds.map((fund, index) => {
                   const { text } = getDynamicAmountTextAndValue(fund);
+                  const warning = getFundEligibilityWarning(fund);
                   return (
                     <motion.div
                       key={fund.id}
@@ -227,18 +235,23 @@ export default function Stacker({
                       animate={{ opacity: 1, x: 0 }}
                       className="flex items-center justify-between bg-paper-dark p-3 border border-ink"
                     >
-                      <div className="flex items-center gap-2 truncate">
+                      <div className="flex items-center gap-2 truncate flex-1 min-w-0">
                         <div className="h-6 w-6 border border-ink bg-paper flex items-center justify-center text-[10px] font-mono font-bold text-ink shrink-0">
                           {index + 1}
                         </div>
-                        <div className="truncate">
+                        <div className="truncate flex-1 min-w-0">
                           <span className="block text-xs font-bold text-ink truncate font-sans">{fund.name}</span>
                           <span className="block text-[10px] text-ink/75 font-mono">{text}</span>
+                          {warning && (
+                            <span className="block text-[9px] font-mono font-bold text-alert mt-0.5">
+                              ⚠ {warning}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <button
                         onClick={() => onRemoveFromStack(fund.id)}
-                        className="p-1.5 text-ink/50 hover:text-alert hover:bg-alert/5 transition-colors cursor-pointer"
+                        className="p-1.5 text-ink/50 hover:text-alert hover:bg-alert/5 transition-colors cursor-pointer shrink-0"
                         title="Borrar de la pila"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
