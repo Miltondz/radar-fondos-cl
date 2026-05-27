@@ -25,8 +25,7 @@ interface GeminiPanelProps {
 const OR_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined;
 
 const MODELS = [
-  "google/gemini-2.5-flash-lite:free",
-  "deepseek/deepseek-v4-flash:free",
+  "openai/gpt-oss-120b:free",
   "minimax/minimax-m2.5:free",
   "nvidia/nemotron-3-super-120b-a12b:free",
   "google/gemini-2.5-flash",  // paid fallback — only used when all free models fail
@@ -73,7 +72,8 @@ FINANCIAMIENTOS ACTIVOS (${financiamientos.length}): ${financiamientos.map(f => 
 LICITACIONES (${licitaciones.length}): ${licitaciones.map(f => `${f.name}|${f.chileCode || ""}|${formatCLP(f.amountNumber)}|${f.organizer}`).join(" // ")}
 HACKATONES (${hackatones.length}): ${hackatones.map(f => `${f.name}|${f.organizer}|${formatCLP(f.amountNumber)}|cierre:${f.deadline}`).join(" // ")}
 
-Eres un asesor experto en financiamiento gubernamental para startups tecnológicas chilenas. Usa el contexto del sistema para respuestas precisas y personalizadas. Responde siempre en español, de forma concisa y accionable. Cita nombres específicos de fondos, montos y fechas del contexto cuando sea relevante.`;
+Eres un asesor experto en financiamiento gubernamental para startups tecnológicas chilenas. Responde siempre en español, de forma concisa y accionable.
+REGLA CRÍTICA: SOLO menciona fondos, montos, plazos y entidades que aparezcan EXPLÍCITAMENTE en el CONTEXTO anterior. NUNCA inventes fondos, convocatorias, programas, montos ni fechas que no estén listados arriba. Si no tienes información suficiente en el contexto, dilo claramente en lugar de inventar.`;
 }
 
 export default function GeminiPanel({ profile, stackedFunds, currentView, isCompact = false }: GeminiPanelProps) {
@@ -153,7 +153,7 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
             <Bot className="h-7 w-7" />
           </div>
           <div>
-            <h3 className="font-sans font-black text-2xl text-ink">Asesor IA — Gemini 2.5 Flash</h3>
+            <h3 className="font-sans font-black text-2xl text-ink">Asesor IA — GPT OSS 120B</h3>
             <p className="text-xs font-mono text-ink/60 uppercase tracking-wider mt-0.5">Configuración de API requerida</p>
           </div>
         </div>
@@ -185,7 +185,7 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
           </div>
           <div>
             <span className="block text-[9px] font-mono font-bold tracking-widest text-ink/60 uppercase">Inteligencia Artificial Estratégica</span>
-            <h3 className="font-serif font-black text-xl text-ink leading-none">Asesor IA — Gemini 2.5 Flash</h3>
+            <h3 className="font-serif font-black text-xl text-ink leading-none">Asesor IA — GPT OSS 120B</h3>
           </div>
         </div>
         <div className="flex items-center gap-2">
