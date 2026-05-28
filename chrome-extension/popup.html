@@ -125,16 +125,20 @@
     </div>
 
     <!-- Settings toggle -->
-    <div class="settings-bar">
+    <div class="settings-bar" style="display:flex;align-items:center;justify-content:space-between;">
       <button class="btn-settings" id="btnToggleSettings">⚙ API Key</button>
+      <span id="keyStatus" style="font-size:9px;font-family:monospace;opacity:0.5;"></span>
     </div>
     <div class="settings-panel hidden" id="settingsPanel">
       <label class="settings-label">OpenRouter API Key</label>
       <input type="password" id="inputApiKey" placeholder="sk-or-…" autocomplete="off" />
-      <button class="btn btn-ghost btn-sm" id="btnSaveKey">Guardar</button>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" id="btnSaveKey">Guardar</button>
+        <button class="btn btn-ghost btn-sm" id="btnClearKey" style="color:#dc2626;border-color:#dc2626;">Borrar key</button>
+      </div>
       <div class="settings-hint">
         Obtén tu key en <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>.<br/>
-        Se guarda localmente en el navegador.
+        Se guarda en chrome.storage.sync (persiste entre sesiones).
       </div>
     </div>
 

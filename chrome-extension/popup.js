@@ -93,6 +93,14 @@ function bindEvents() {
     $('settingsPanel').classList.toggle('hidden');
   });
   $('btnSaveKey').addEventListener('click', saveApiKey);
+  $('btnClearKey').addEventListener('click', () => {
+    chrome.storage.sync.remove('orApiKey', () => {
+      $('inputApiKey').value = '';
+      $('keyStatus').textContent = 'Sin key';
+      $('btnClearKey').textContent = '✓ Borrada';
+      setTimeout(() => { $('btnClearKey').textContent = 'Borrar key'; }, 1500);
+    });
+  });
   $('fieldBasesUrl').addEventListener('input', () => {
     const val = $('fieldBasesUrl').value.trim();
     $('linkBases').href = val || '#';
@@ -443,7 +451,7 @@ function handleSend() {
   };
 
   const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-  const url = `${RADAR_APP_URL}?import=${encoded}`;
+  const url = `${RADAR_APP_URL}?import=${encodeURIComponent(encoded)}`;
 
   chrome.tabs.create({ url });
   showSection('sectionSuccess');
@@ -458,13 +466,20 @@ async function getApiKey() {
 
 async function loadApiKey() {
   const key = await getApiKey();
-  if (key) $('inputApiKey').value = key;
+  if (key) {
+    $('inputApiKey').value = key;
+    $('keyStatus').textContent = `✓ Key guardada (${key.slice(0, 8)}…)`;
+  } else {
+    $('keyStatus').textContent = 'Sin key';
+  }
 }
 
 function saveApiKey() {
   const key = $('inputApiKey').value.trim();
+  if (!key) return;
   chrome.storage.sync.set({ orApiKey: key }, () => {
     $('btnSaveKey').textContent = '✓ Guardada';
+    $('keyStatus').textContent = `✓ Key guardada (${key.slice(0, 8)}…)`;
     setTimeout(() => { $('btnSaveKey').textContent = 'Guardar'; }, 1500);
   });
 }
