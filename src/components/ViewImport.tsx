@@ -436,6 +436,8 @@ Sé específico y cita datos exactos del documento. Si hay fechas, montos o porc
 
   const handleSave = () => {
     if (!draft) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const isClosed = draft.deadlineISO ? draft.deadlineISO < today : draft.urgency === "CLOSED";
     const fund: Fund = {
       id: `custom-${slugify(draft.name)}-${Date.now().toString(36)}`,
       name: draft.name,
@@ -444,8 +446,8 @@ Sé específico y cita datos exactos del documento. Si hay fechas, montos o porc
       amountNumber: draft.amountNumber,
       deadline: draft.deadline,
       deadlineISO: draft.deadlineISO || undefined,
-      status: FundStatus.OPEN,
-      urgency: draft.urgency,
+      status: isClosed ? FundStatus.CLOSED : FundStatus.OPEN,
+      urgency: isClosed ? "CLOSED" : draft.urgency,
       category: draft.category,
       description: draft.description,
       cofinancing: draft.cofinancing || "",

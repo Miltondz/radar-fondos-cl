@@ -25,7 +25,7 @@ interface ViewLicitacionesProps {
 
 export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund }: ViewLicitacionesProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeFilter, setActiveFilter] = useState<"TODOS" | "COMPRA_AGIL" | "PUBLICO" | "CONVENIO_MARCO">("TODOS");
+  const [activeFilter, setActiveFilter] = useState<"TODOS" | "COMPRA_AGIL" | "PUBLICO" | "CONVENIO_MARCO" | "CERRADO">("TODOS");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedLicId, setExpandedLicId] = useState<string | null>("lic-las-condes-participacion-2026");
 
@@ -77,14 +77,16 @@ export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, 
 
       switch (activeFilter) {
         case "COMPRA_AGIL":
-          return lic.category === "Compra Ágil";
+          return lic.category === "Compra Ágil" && lic.urgency !== "CLOSED";
         case "PUBLICO":
-          return lic.category === "Licitación Pública";
+          return lic.category === "Licitación Pública" && lic.urgency !== "CLOSED";
         case "CONVENIO_MARCO":
-          return lic.category === "Convenio Marco";
+          return lic.category === "Convenio Marco" && lic.urgency !== "CLOSED";
+        case "CERRADO":
+          return lic.urgency === "CLOSED" || lic.status === FundStatus.CLOSED;
         case "TODOS":
         default:
-          return true;
+          return lic.urgency !== "CLOSED" && lic.status !== FundStatus.CLOSED;
       }
     });
   }, [licitaciones, searchTerm, activeFilter]);
@@ -116,16 +118,18 @@ export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, 
         </div>
 
         {/* Categories togglers */}
-        <div className="flex border border-ink bg-paper p-0.5">
-          {(["TODOS", "COMPRA_AGIL", "PUBLICO", "CONVENIO_MARCO"] as const).map((filter) => (
+        <div className="flex flex-wrap border border-ink bg-paper p-0.5 gap-0.5">
+          {(["TODOS", "COMPRA_AGIL", "PUBLICO", "CONVENIO_MARCO", "CERRADO"] as const).map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
               className={`px-3 py-1.5 font-mono text-[10px] font-bold uppercase transition-all cursor-pointer ${
-                activeFilter === filter ? "bg-accent-blue text-white" : "bg-paper hover:bg-paper-dark text-ink"
+                activeFilter === filter
+                  ? filter === "CERRADO" ? "bg-ink/50 text-white" : "bg-accent-blue text-white"
+                  : filter === "CERRADO" ? "bg-paper text-ink/40 hover:bg-paper-dark" : "bg-paper hover:bg-paper-dark text-ink"
               }`}
             >
-              {filter === "TODOS" ? "💼 Todos" : filter === "COMPRA_AGIL" ? "⚡ Compra Ágil (<100 UTM)" : filter === "PUBLICO" ? "🏛️ Pública" : "📋 Convenio Marco"}
+              {filter === "TODOS" ? "💼 Activos" : filter === "COMPRA_AGIL" ? "⚡ Compra Ágil" : filter === "PUBLICO" ? "🏛️ Pública" : filter === "CONVENIO_MARCO" ? "📋 Convenio Marco" : "🔒 Cerradas"}
             </button>
           ))}
         </div>
@@ -145,11 +149,12 @@ export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, 
             const isExpanded = expandedLicId === lic.id;
             const eligibility = computeEligibility(lic);
             const isStacked = stackedFunds.some(f => f.id === lic.id);
+            const isClosed = lic.urgency === "CLOSED" || lic.status === FundStatus.CLOSED;
 
             return (
               <div
                 key={lic.id}
-                className="bg-paper border-2 border-ink shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:border-accent-blue transition-colors"
+                className={`bg-paper border-2 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-colors ${isClosed ? "border-ink/30 opacity-60" : "border-ink hover:border-accent-blue"}`}
               >
                 
                 {/* Row banner */}

@@ -25,7 +25,7 @@ interface ViewFinanciamientosProps {
 
 export default function ViewFinanciamientos({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund }: ViewFinanciamientosProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeFilter, setActiveFilter] = useState<"TODOS" | "URGENTES" | "MUJERES" | "SEMILLA" | "ID_INNOVACION">("TODOS");
+  const [activeFilter, setActiveFilter] = useState<"TODOS" | "URGENTES" | "MUJERES" | "SEMILLA" | "ID_INNOVACION" | "CERRADO">("TODOS");
   const [sortBy, setSortBy] = useState<"URGENCY" | "AMOUNT" | "CLOSE_DATE">("URGENCY");
   const [expandedFundId, setExpandedFundId] = useState<string | null>("corfo-semilla-inicia-rm-2026");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -84,16 +84,18 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
 
       switch (activeFilter) {
         case "URGENTES":
-          return fund.urgency === "CRITICAL" || fund.urgency === "HIGH";
+          return (fund.urgency === "CRITICAL" || fund.urgency === "HIGH") && fund.urgency !== "CLOSED";
         case "MUJERES":
-          return fund.eligibilityGenderRequired === true;
+          return fund.eligibilityGenderRequired === true && fund.urgency !== "CLOSED";
         case "SEMILLA":
-          return fund.category === "Seed" || fund.category === "Growth";
+          return (fund.category === "Seed" || fund.category === "Growth") && fund.urgency !== "CLOSED";
         case "ID_INNOVACION":
-          return fund.category === "R&D" || fund.category === "Innovation";
+          return (fund.category === "R&D" || fund.category === "Innovation") && fund.urgency !== "CLOSED";
+        case "CERRADO":
+          return fund.urgency === "CLOSED" || fund.status === FundStatus.CLOSED;
         case "TODOS":
         default:
-          return true;
+          return fund.urgency !== "CLOSED" && fund.status !== FundStatus.CLOSED;
       }
     });
   }, [financiamientos, searchTerm, activeFilter]);
@@ -222,17 +224,21 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
 
       {/* Categories Fast Filter Bar */}
       <div className="flex flex-wrap gap-2">
-        {(["TODOS", "URGENTES", "MUJERES", "SEMILLA", "ID_INNOVACION"] as const).map((filter) => (
+        {(["TODOS", "URGENTES", "MUJERES", "SEMILLA", "ID_INNOVACION", "CERRADO"] as const).map((filter) => (
           <button
             key={filter}
             onClick={() => setActiveFilter(filter)}
-            className={`px-3 py-1.5 font-mono text-xs border border-ink transition-all cursor-pointer shadow-[2px_2px_0px_rgba(0,0,0,1)] ${
+            className={`px-3 py-1.5 font-mono text-xs border transition-all cursor-pointer shadow-[2px_2px_0px_rgba(0,0,0,1)] ${
               activeFilter === filter
-                ? "bg-accent-green text-white font-extrabold"
-                : "bg-paper hover:bg-paper-dark text-ink"
+                ? filter === "CERRADO"
+                  ? "bg-ink/50 text-white font-extrabold border-ink"
+                  : "bg-accent-green text-white font-extrabold border-ink"
+                : filter === "CERRADO"
+                  ? "bg-paper border-ink/40 text-ink/50 hover:bg-paper-dark"
+                  : "bg-paper border-ink hover:bg-paper-dark text-ink"
             }`}
           >
-            {filter === "TODOS" ? "💼 Todos los Subsidios" : filter === "URGENTES" ? "🚨 Cierre Urgente" : filter === "MUJERES" ? "♀️ Enfoque de Género" : filter === "SEMILLA" ? "🌱 Semilla / Escalamiento" : "🔬 I+D Tecnológica"}
+            {filter === "TODOS" ? "💼 Activos" : filter === "URGENTES" ? "🚨 Cierre Urgente" : filter === "MUJERES" ? "♀️ Enfoque de Género" : filter === "SEMILLA" ? "🌱 Semilla / Escalamiento" : filter === "ID_INNOVACION" ? "🔬 I+D Tecnológica" : "🔒 Cerrados"}
           </button>
         ))}
       </div>
@@ -251,11 +257,12 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
             const eligibility = computeEligibility(fund);
             const isStacked = stackedFunds.some(f => f.id === fund.id);
 
+            const isClosed = fund.urgency === "CLOSED" || fund.status === FundStatus.CLOSED;
             return (
               <div
                 key={fund.id}
                 className={`bg-paper border-2 ${
-                  fund.urgency === "CRITICAL" ? "border-alert" : "border-ink"
+                  isClosed ? "border-ink/30 opacity-60" : fund.urgency === "CRITICAL" ? "border-alert" : "border-ink"
                 } shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-all`}
               >
                 

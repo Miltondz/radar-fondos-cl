@@ -25,7 +25,7 @@ interface ViewHackatonesProps {
 
 export default function ViewHackatones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund }: ViewHackatonesProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeFilter, setActiveFilter] = useState<"TODOS" | "PREMIO_EFECTIVO" | "TECNOLOGICO">("TODOS");
+  const [activeFilter, setActiveFilter] = useState<"TODOS" | "PREMIO_EFECTIVO" | "TECNOLOGICO" | "CERRADO">("TODOS");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedHackId, setExpandedHackId] = useState<string | null>("hack-academia-hacklab-2026");
 
@@ -69,13 +69,14 @@ export default function ViewHackatones({ profile, onAddToStack, stackedFunds, st
 
       switch (activeFilter) {
         case "PREMIO_EFECTIVO":
-          // Award size >= 10M
-          return hack.amountNumber >= 10000000;
+          return hack.amountNumber >= 10000000 && hack.urgency !== "CLOSED";
         case "TECNOLOGICO":
-          return hack.category.toLowerCase().includes("ia") || hack.category.toLowerCase().includes("global") || hack.category.toLowerCase().includes("latam");
+          return (hack.category.toLowerCase().includes("ia") || hack.category.toLowerCase().includes("global") || hack.category.toLowerCase().includes("latam")) && hack.urgency !== "CLOSED";
+        case "CERRADO":
+          return hack.urgency === "CLOSED" || hack.status === FundStatus.CLOSED;
         case "TODOS":
         default:
-          return true;
+          return hack.urgency !== "CLOSED" && hack.status !== FundStatus.CLOSED;
       }
     });
   }, [hackatones, searchTerm, activeFilter]);
@@ -107,16 +108,18 @@ export default function ViewHackatones({ profile, onAddToStack, stackedFunds, st
         </div>
 
         {/* Categories togglers */}
-        <div className="flex border border-ink bg-paper p-0.5">
-          {(["TODOS", "PREMIO_EFECTIVO", "TECNOLOGICO"] as const).map((filter) => (
+        <div className="flex flex-wrap border border-ink bg-paper p-0.5 gap-0.5">
+          {(["TODOS", "PREMIO_EFECTIVO", "TECNOLOGICO", "CERRADO"] as const).map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
               className={`px-3 py-1.5 font-mono text-[10px] font-bold uppercase transition-all cursor-pointer ${
-                activeFilter === filter ? "bg-accent-purple text-white" : "bg-paper hover:bg-paper-dark text-ink"
+                activeFilter === filter
+                  ? filter === "CERRADO" ? "bg-ink/50 text-white" : "bg-accent-purple text-white"
+                  : filter === "CERRADO" ? "bg-paper text-ink/40 hover:bg-paper-dark" : "bg-paper hover:bg-paper-dark text-ink"
               }`}
             >
-              {filter === "TODOS" ? "⚡ Todas" : filter === "PREMIO_EFECTIVO" ? "🏆 Premios > $10M" : "🤖 Desafío IA / Urbano"}
+              {filter === "TODOS" ? "⚡ Activos" : filter === "PREMIO_EFECTIVO" ? "🏆 Premios > $10M" : filter === "TECNOLOGICO" ? "🤖 Desafío IA / Urbano" : "🔒 Cerrados"}
             </button>
           ))}
         </div>
@@ -136,11 +139,12 @@ export default function ViewHackatones({ profile, onAddToStack, stackedFunds, st
             const isExpanded = expandedHackId === hack.id;
             const eligibility = computeEligibility(hack);
             const isStacked = stackedFunds.some(f => f.id === hack.id);
+            const isClosed = hack.urgency === "CLOSED" || hack.status === FundStatus.CLOSED;
 
             return (
               <div
                 key={hack.id}
-                className="bg-paper border-2 border-ink shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:border-accent-purple transition-colors"
+                className={`bg-paper border-2 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-colors ${isClosed ? "border-ink/30 opacity-60" : "border-ink hover:border-accent-purple"}`}
               >
                 
                 {/* Row banner */}
