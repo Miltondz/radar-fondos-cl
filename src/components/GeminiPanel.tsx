@@ -3,17 +3,7 @@ import { Send, Sparkles, AlertCircle, Bot, Trash2 } from "lucide-react";
 import OpenAI from "openai";
 import { Fund, MiltonProfile } from "../types";
 import { ALL_FUNDS } from "../data";
-import { formatCLP } from "../utils";
-
-const VIEW_LABELS: Record<string, string> = {
-  landing: "Resumen e Inicio",
-  financiamientos: "Subsidios y Financiamientos",
-  licitaciones: "Licitaciones y Compras Públicas",
-  hackatones: "Hackatones y Desafíos",
-  roadmap: "Plan de Acción",
-  agenda: "Agenda y Timeline",
-  ia: "Asesor IA (vista completa)",
-};
+import { loadPromptsConfig, buildPromptVars, renderTemplate } from "../promptsConfig";
 
 interface GeminiPanelProps {
   profile: MiltonProfile;
@@ -34,46 +24,6 @@ const MODELS = [
 interface Message {
   role: "user" | "assistant";
   content: string;
-}
-
-const PRESET_PROMPTS = [
-  {
-    label: "🎯 Priorizar Fondos",
-    build: (profile: MiltonProfile, stacked: Fund[]) =>
-      `Soy fundador de una startup TI chilena. Mi perfil: socia_femenina=${profile.hasWoman}, SpA=${profile.hasSpA}, ventas_iniciadas=${profile.hasSales}, SII_iniciado=${profile.hasSiiInitiated}. Portafolio actual: ${stacked.map(f => f.name).join(", ") || "ninguno aún"}. Considerando todos los fondos disponibles en el sistema, ¿cuáles son los 3 que debo priorizar absolutamente este mes y por qué? Sé específico sobre plazos y montos.`
-  },
-  {
-    label: "📋 Diagnóstico Elegibilidad",
-    build: (profile: MiltonProfile, stacked: Fund[]) =>
-      `Analiza mi elegibilidad para los fondos en mi portafolio. Perfil: socia_femenina=${profile.hasWoman}, SpA=${profile.hasSpA}, ventas=${profile.hasSales}, SII=${profile.hasSiiInitiated}. Portafolio: ${stacked.map(f => `${f.name} [requiere_mujer:${f.eligibilityGenderRequired}, requiere_SpA:${f.requiresSpA}, requiere_SII:${f.SIIRequired}, sin_ventas:${f.eligibilitySalesRestricted}]`).join("; ") || "vacío"}. Dame diagnóstico detallado de elegibilidad, requisitos pendientes críticos y próximos pasos concretos para cada fondo.`
-  },
-  {
-    label: "📝 Pitch CORFO",
-    build: (_profile: MiltonProfile, _stacked: Fund[]) =>
-      `Redacta un pitch ejecutivo de 350 palabras para postular a CORFO Semilla Inicia, orientado a startup de software TI chilena. Incluir: problema claro, solución tecnológica diferenciada, mercado objetivo con tamaño, modelo de negocio, tracción actual o validaciones, descripción del equipo y uso específico de los fondos solicitados. Formato CORFO: claro, sin jerga, énfasis en impacto económico regional y escalabilidad.`
-  },
-  {
-    label: "💡 Estrategia Stacking",
-    build: (profile: MiltonProfile, stacked: Fund[]) =>
-      `Como asesor experto en financiamiento público chileno, analiza este portafolio de stacking: ${stacked.map(f => `${f.name} (entidad: ${f.entity || f.organizer})`).join(", ") || "portafolio vacío"}. Perfil Milton: ${profile.hasWoman ? "con socia fundadora" : "sin socia"}, ${profile.hasSpA ? "SpA constituida" : "sin SpA"}. ¿Es compatible según normativa chilena de concurrencia de subsidios CORFO/SERCOTEC? Identifica conflictos regulatorios y sugiere la combinación óptima que maximice el financiamiento total sin infringir restricciones.`
-  },
-];
-
-function buildSystemContext(profile: MiltonProfile, stackedFunds: Fund[], currentView?: string) {
-  const financiamientos = ALL_FUNDS.filter(f => f.type === "financiamiento" && f.urgency !== "CLOSED");
-  const licitaciones = ALL_FUNDS.filter(f => f.type === "licitacion");
-  const hackatones = ALL_FUNDS.filter(f => f.type === "hackaton");
-  const viewLabel = currentView ? (VIEW_LABELS[currentView] || currentView) : "Desconocida";
-  return `=== CONTEXTO RADAR FONDOS CL — Chile, Mayo 2026 ===
-VISTA_ACTIVA: ${viewLabel} — el usuario está revisando este panel ahora mismo.
-PERFIL MILTON: socia_femenina=${profile.hasWoman} | SpA_constituida=${profile.hasSpA} | ventas_iniciadas=${profile.hasSales} | SII_iniciado=${profile.hasSiiInitiated}
-PORTAFOLIO ACTIVO (${stackedFunds.length} fondos): ${stackedFunds.map(f => `${f.name} (${formatCLP(f.amountNumber)})`).join(" + ") || "vacío"}
-FINANCIAMIENTOS ACTIVOS (${financiamientos.length}): ${financiamientos.map(f => `${f.name}|${f.entity}|${formatCLP(f.amountNumber)}|cierre:${f.deadline}|reqMujer:${f.eligibilityGenderRequired}|reqSpA:${f.requiresSpA}|reqSII:${f.SIIRequired}`).join(" // ")}
-LICITACIONES (${licitaciones.length}): ${licitaciones.map(f => `${f.name}|${f.chileCode || ""}|${formatCLP(f.amountNumber)}|${f.organizer}`).join(" // ")}
-HACKATONES (${hackatones.length}): ${hackatones.map(f => `${f.name}|${f.organizer}|${formatCLP(f.amountNumber)}|cierre:${f.deadline}`).join(" // ")}
-
-Eres un asesor experto en financiamiento gubernamental para startups tecnológicas chilenas. Responde siempre en español, de forma concisa y accionable.
-REGLA CRÍTICA: SOLO menciona fondos, montos, plazos y entidades que aparezcan EXPLÍCITAMENTE en el CONTEXTO anterior. NUNCA inventes fondos, convocatorias, programas, montos ni fechas que no estén listados arriba. Si no tienes información suficiente en el contexto, dilo claramente en lugar de inventar.`;
 }
 
 export default function GeminiPanel({ profile, stackedFunds, currentView, isCompact = false }: GeminiPanelProps) {
@@ -104,7 +54,9 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
     setInput("");
     setLoading(true);
 
-    const systemCtx = buildSystemContext(profile, stackedFunds, currentView);
+    const cfg = loadPromptsConfig();
+    const vars = buildPromptVars(profile, stackedFunds, currentView);
+    const systemCtx = renderTemplate(cfg.systemPrompt, vars);
     const chatMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: "system", content: systemCtx },
       ...allMessages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
@@ -206,10 +158,13 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
 
       {/* Preset prompt buttons */}
       <div className="border-b border-ink/20 p-4 grid grid-cols-2 md:grid-cols-4 gap-2">
-        {PRESET_PROMPTS.map((preset, i) => (
+        {loadPromptsConfig().presets.map((preset) => (
           <button
-            key={i}
-            onClick={() => sendMessage(preset.build(profile, stackedFunds))}
+            key={preset.id}
+            onClick={() => {
+              const vars = buildPromptVars(profile, stackedFunds, currentView);
+              sendMessage(renderTemplate(preset.template, vars));
+            }}
             disabled={loading}
             className="px-3 py-2.5 text-[10px] font-mono font-bold uppercase border border-ink bg-paper hover:bg-accent-purple hover:text-white hover:border-accent-purple transition-all cursor-pointer text-left leading-snug disabled:opacity-50 disabled:cursor-not-allowed shadow-[1.5px_1.5px_0px_rgba(0,0,0,1)] active:translate-y-[0.5px]"
           >

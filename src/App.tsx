@@ -16,6 +16,7 @@ import GeminiPanel from "./components/GeminiPanel";
 import FloatingAI from "./components/FloatingAI";
 import PlanDeAccion from "./components/PlanDeAccion";
 import Resources from "./components/Resources";
+import SettingsPanel from "./components/SettingsPanel";
 
 export default function App() {
   // 1. Theme State & Storage
@@ -80,7 +81,7 @@ export default function App() {
     return [];
   });
 
-  const [activeTab, setActiveTab] = useState<"landing" | "financiamientos" | "licitaciones" | "hackatones" | "roadmap" | "agenda" | "ia">("landing");
+  const [activeTab, setActiveTab] = useState<"landing" | "financiamientos" | "licitaciones" | "hackatones" | "roadmap" | "agenda" | "ia" | "configuracion">("landing");
 
   useEffect(() => {
     try { localStorage.setItem("milton_radar_profile", JSON.stringify(profile)); } catch (_) {}
@@ -167,7 +168,7 @@ export default function App() {
             <span>Milton Workspace</span>
             <span>/</span>
             <span className="font-bold text-ink">
-              {activeTab === "landing" ? "Inicio de Reporte" : activeTab === "financiamientos" ? "Fomento y Subsidios" : activeTab === "licitaciones" ? "Tender y Licitaciones" : activeTab === "hackatones" ? "Retos Avanzados" : activeTab === "agenda" ? "Agenda y Timeline" : activeTab === "ia" ? "Asesor IA Gemini" : "Plan de Acción"}
+              {activeTab === "landing" ? "Inicio de Reporte" : activeTab === "financiamientos" ? "Fomento y Subsidios" : activeTab === "licitaciones" ? "Tender y Licitaciones" : activeTab === "hackatones" ? "Retos Avanzados" : activeTab === "agenda" ? "Agenda y Timeline" : activeTab === "ia" ? "Asesor IA Gemini" : activeTab === "configuracion" ? "Configuración" : "Plan de Acción"}
             </span>
           </div>
 
@@ -256,6 +257,15 @@ export default function App() {
           >
             🤖 Asesor IA
           </button>
+
+          <button
+            onClick={() => setActiveTab("configuracion")}
+            className={`flex-1 min-w-[130px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
+              activeTab === "configuracion" ? "bg-ink text-paper font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
+            }`}
+          >
+            ⚙️ Configuración
+          </button>
         </div>
 
         {/* Reactive Tab Component Router Frame */}
@@ -324,6 +334,13 @@ export default function App() {
 
               {activeTab === "ia" && (
                 <GeminiPanel
+                  profile={profile}
+                  stackedFunds={stackedFunds}
+                />
+              )}
+
+              {activeTab === "configuracion" && (
+                <SettingsPanel
                   profile={profile}
                   stackedFunds={stackedFunds}
                 />

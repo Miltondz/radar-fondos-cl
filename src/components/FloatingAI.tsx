@@ -20,6 +20,7 @@ const VIEW_LABELS: Record<string, string> = {
   roadmap: "Plan",
   agenda: "Agenda",
   ia: "IA",
+  configuracion: "Config",
 };
 
 export default function FloatingAI({ profile, stackedFunds, currentView }: FloatingAIProps) {
