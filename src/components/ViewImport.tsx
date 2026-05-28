@@ -26,34 +26,42 @@ const MODELS = [
 
 const EXTRACTION_SYSTEM_PROMPT = `Eres un asistente de extracción de datos para "Radar Fondos CL", plataforma de inteligencia de financiamiento para startups chilenas.
 
-Tu tarea: analizar el contenido proporcionado (texto de web, redes sociales o publicaciones) y extraer los datos de una convocatoria de fondos, licitación o hackaton en formato JSON.
+Tu tarea: analizar el contenido y extraer de forma COMPLETA y DETALLADA los datos de una convocatoria de fondos, licitación o hackaton en formato JSON.
 
 REGLAS ESTRICTAS:
 1. Devuelve SOLO JSON válido. Sin markdown, sin explicaciones, sin texto extra.
-2. Si el contenido NO contiene una convocatoria real, devuelve exactamente: {"error": "No se encontró información de una convocatoria en el contenido."}
-3. Infiere el campo type: "financiamiento" (subsidio/capital semilla/no reembolsable), "licitacion" (contrato público/compra estatal), "hackaton" (competencia/desafío/concurso de innovación).
-4. amountNumber debe ser solo el número entero en CLP. Si está en USD multiplica por 950. Si no hay dato usa 0.
-5. urgency: "CRITICAL" si cierra en menos de 7 días desde hoy (2026-05-28), "HIGH" si menos de 30 días, "MEDIUM" si menos de 90 días, "LOW" en otro caso, "CLOSED" si ya cerró.
-6. Extrae hasta 5 requisitos clave en el array requirements.
+2. Si el contenido NO contiene una convocatoria real: {"error": "No se encontró información de una convocatoria en el contenido."}
+3. type: "financiamiento" (subsidio/capital/no reembolsable), "licitacion" (contrato público), "hackaton" (competencia/desafío).
+4. amountNumber: entero en CLP. USD → multiplica por 950. Sin dato → 0.
+5. urgency: "CRITICAL" <7 días desde hoy 2026-05-28, "HIGH" <30 días, "MEDIUM" <90 días, "LOW" mayor plazo, "CLOSED" cerrado.
+6. Extrae TODOS los requisitos que encuentres (hasta 10 items).
+7. basesResumen: redacta un resumen estructurado de las bases con los puntos más importantes (elegibilidad, proceso de postulación, criterios de evaluación, compromisos del beneficiario). Mínimo 300 caracteres, máximo 800.
+8. basesUrl: busca activamente el enlace directo al documento de bases, formulario de postulación o página oficial. Si el contenido tiene URLs, extrae la más relevante para postular.
+9. cofinancing: porcentaje o monto de cofinanciamiento requerido si aplica.
+10. eligibilityNotes: resumen de quién puede y quién NO puede postular.
 
-Formato JSON exacto a devolver:
+Formato JSON a devolver:
 {
-  "name": "Nombre oficial completo de la convocatoria",
-  "entity": "Organismo convocante (CORFO, SERCOTEC, Startup Chile, ANID, u otro)",
-  "amount": "Monto como string legible (ej: 'hasta $10.000.000 CLP')",
-  "amountNumber": 10000000,
-  "deadline": "Fecha límite en español (ej: '30 junio 2026')",
-  "deadlineISO": "YYYY-MM-DD o string vacío si desconocido",
-  "description": "Descripción clara del programa (máx 300 caracteres)",
-  "category": "Seed, Growth, Innovation, Credit, R&D u otro",
+  "name": "Nombre oficial completo",
+  "entity": "Organismo convocante",
+  "amount": "Monto legible (ej: 'hasta $20.000.000 CLP')",
+  "amountNumber": 20000000,
+  "deadline": "Fecha límite en español",
+  "deadlineISO": "YYYY-MM-DD o ''",
+  "description": "Descripción completa del programa — qué financia, para qué etapa, qué resultados espera (máx 500 caracteres)",
+  "category": "Seed|Growth|Innovation|Credit|R&D u otro",
   "type": "financiamiento|licitacion|hackaton",
-  "url": "URL fuente si fue proporcionada, o string vacío",
-  "organizer": "Igual a entity o más específico si se menciona",
-  "requirements": ["requisito 1", "requisito 2"],
+  "url": "URL de la página fuente",
+  "basesUrl": "URL directa al documento de bases, formulario o plataforma de postulación",
+  "organizer": "Organismo específico",
+  "requirements": ["Requisito detallado 1", "Requisito detallado 2"],
+  "eligibilityNotes": "Quién puede postular y condiciones de exclusión",
   "urgency": "CRITICAL|HIGH|MEDIUM|LOW|CLOSED",
-  "tips": "Nota clave para el postulante (máx 100 caracteres)",
-  "chileCode": "Código de licitación si aplica, si no string vacío",
-  "address": "Dirección si el evento es presencial, si no string vacío"
+  "basesResumen": "Resumen estructurado de las bases: objetivo del programa, montos disponibles, proceso de postulación paso a paso, criterios de evaluación, compromisos del beneficiario, plazos clave",
+  "cofinancing": "Porcentaje o monto de cofinanciamiento requerido, o '' si no aplica",
+  "tips": "Consejo estratégico clave para el postulante (máx 150 caracteres)",
+  "chileCode": "Código licitación si aplica",
+  "address": "Dirección si es presencial"
 }`;
 
 function slugify(text: string): string {
@@ -93,9 +101,13 @@ interface FundDraft {
   category: string;
   type: FundType;
   url: string;
+  basesUrl: string;
   organizer: string;
   requirements: string[];
+  eligibilityNotes: string;
   urgency: Fund["urgency"];
+  basesResumen: string;
+  cofinancing: string;
   tips: string;
   chileCode: string;
   address: string;
@@ -175,9 +187,13 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
         category: String(parsed.category ?? "Innovation"),
         type: typeVal,
         url: sourceUrl || String(parsed.url ?? ""),
+        basesUrl: String(parsed.basesUrl ?? ""),
         organizer: String(parsed.organizer ?? parsed.entity ?? ""),
         requirements: Array.isArray(parsed.requirements) ? parsed.requirements.map(String) : [],
+        eligibilityNotes: String(parsed.eligibilityNotes ?? ""),
         urgency: urgencyVal,
+        basesResumen: String(parsed.basesResumen ?? ""),
+        cofinancing: String(parsed.cofinancing ?? ""),
         tips: String(parsed.tips ?? ""),
         chileCode: String(parsed.chileCode ?? ""),
         address: String(parsed.address ?? ""),
@@ -350,16 +366,16 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
       urgency: draft.urgency,
       category: draft.category,
       description: draft.description,
-      cofinancing: "",
+      cofinancing: draft.cofinancing || "",
       requirements: draft.requirements,
       eligibilityGenderRequired: false,
       eligibilitySalesRestricted: false,
       SIIRequired: false,
       requiresSpA: false,
-      miltonAplica: "Verificar elegibilidad manualmente",
-      tips: draft.tips,
-      url: draft.url,
-      referenceUrlText: "Más información",
+      miltonAplica: draft.eligibilityNotes || "Verificar elegibilidad manualmente",
+      tips: [draft.basesResumen, draft.tips].filter(Boolean).join(" | ").slice(0, 800),
+      url: draft.basesUrl || draft.url,
+      referenceUrlText: draft.basesUrl ? "Ver bases oficiales" : "Más información",
       type: draft.type,
       chileCode: draft.chileCode || undefined,
       organizer: draft.organizer || undefined,
@@ -620,7 +636,7 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">URL fuente</label>
+                <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">URL página fuente</label>
                 <input
                   className="w-full border-2 border-ink bg-paper-dark font-mono text-xs text-ink px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ink/30"
                   value={draft.url}
@@ -629,9 +645,40 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
                 />
               </div>
 
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">
+                  🔗 URL directa a las bases / formulario de postulación
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 border-2 border-ink bg-paper-dark font-mono text-xs text-ink px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ink/30"
+                    value={draft.basesUrl}
+                    onChange={e => setDraft(d => d ? { ...d, basesUrl: e.target.value } : d)}
+                    placeholder="https://… (enlace directo al documento PDF o formulario)"
+                  />
+                  {draft.basesUrl && (
+                    <a
+                      href={draft.basesUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 flex items-center gap-1 px-3 py-2 border-2 border-ink bg-accent-blue text-white font-mono text-[10px] font-bold hover:opacity-90 transition-opacity"
+                    >
+                      <Link className="h-3 w-3" /> Abrir
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {draft.eligibilityNotes && (
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">Elegibilidad</label>
+                  <p className="text-xs font-mono text-ink/80 bg-paper-dark border border-ink/30 px-3 py-2 leading-relaxed">{draft.eligibilityNotes}</p>
+                </div>
+              )}
+
               {draft.requirements.length > 0 && (
                 <div className="sm:col-span-2">
-                  <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-2">Requisitos extraídos</label>
+                  <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-2">Requisitos ({draft.requirements.length})</label>
                   <div className="flex flex-wrap gap-1.5">
                     {draft.requirements.map((req, i) => (
                       <span key={i} className="bg-paper-dark border border-ink px-2 py-0.5 text-[10px] font-mono text-ink">
@@ -639,6 +686,26 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
                       </span>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {draft.cofinancing && (
+                <div>
+                  <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">Cofinanciamiento</label>
+                  <p className="text-xs font-mono text-ink/80 bg-paper-dark border border-ink/30 px-3 py-2">{draft.cofinancing}</p>
+                </div>
+              )}
+
+              {draft.basesResumen && (
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">
+                    📋 Resumen de las Bases
+                  </label>
+                  <textarea
+                    className="w-full border-2 border-ink bg-paper-dark font-mono text-xs text-ink px-3 py-2 resize-y h-32 focus:outline-none focus:ring-2 focus:ring-ink/30 leading-relaxed"
+                    value={draft.basesResumen}
+                    onChange={e => setDraft(d => d ? { ...d, basesResumen: e.target.value } : d)}
+                  />
                 </div>
               )}
             </div>
