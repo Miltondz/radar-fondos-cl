@@ -157,6 +157,19 @@ export default function App() {
   const [quickImportUrl, setQuickImportUrl] = useState("");
   const [quickImportBarInput, setQuickImportBarInput] = useState("");
 
+  // Handle ?import=<b64json> from Chrome extension
+  const [extensionImportDraft, setExtensionImportDraft] = useState<Record<string, unknown> | null>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const raw = params.get("import");
+      if (!raw) return null;
+      const json = JSON.parse(decodeURIComponent(escape(atob(raw))));
+      // Clean URL so refresh doesn't re-trigger
+      window.history.replaceState({}, "", window.location.pathname);
+      return json;
+    } catch { return null; }
+  });
+
   const handleImportFund = (fund: Fund) => {
     setCustomFunds(prev => [...prev, fund]);
   };
@@ -164,6 +177,11 @@ export default function App() {
   const handleDeleteCustomFund = (id: string) => {
     setCustomFunds(prev => prev.filter(f => f.id !== id));
   };
+
+  // Auto-navigate when extension injects data via URL param
+  useEffect(() => {
+    if (extensionImportDraft) setActiveTab("importar");
+  }, [extensionImportDraft]);
 
   const handleQuickImportSubmit = () => {
     const url = quickImportBarInput.trim();
@@ -474,6 +492,8 @@ export default function App() {
                   onDeleteCustomFund={handleDeleteCustomFund}
                   initialUrl={quickImportUrl}
                   onUrlConsumed={() => setQuickImportUrl("")}
+                  initialDraft={extensionImportDraft}
+                  onDraftConsumed={() => setExtensionImportDraft(null)}
                 />
               )}
             </motion.div>

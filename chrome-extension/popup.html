@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Radar Fondos CL</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="header-brand">
+        <span class="header-icon">📡</span>
+        <div>
+          <div class="header-title">RADAR FONDOS CL</div>
+          <div class="header-sub">Importador de Convocatorias</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current page info -->
+    <div class="page-info">
+      <div class="page-url" id="pageUrl">Cargando página…</div>
+      <div class="page-title" id="pageTitle"></div>
+    </div>
+
+    <!-- Step 1: Analyze -->
+    <div class="section" id="sectionAnalyze">
+      <button class="btn btn-primary" id="btnAnalyze">
+        <span class="btn-icon">🤖</span>
+        Analizar con IA
+      </button>
+      <div class="hint">Extrae nombre, entidad, monto, fechas y bases de esta página.</div>
+    </div>
+
+    <!-- Loading -->
+    <div class="section hidden" id="sectionLoading">
+      <div class="loading">
+        <div class="spinner"></div>
+        <span id="loadingMsg">Extrayendo texto de la página…</span>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div class="section hidden" id="sectionError">
+      <div class="error-box" id="errorMsg"></div>
+      <button class="btn btn-ghost" id="btnRetry">Reintentar</button>
+    </div>
+
+    <!-- Result preview -->
+    <div class="section hidden" id="sectionResult">
+      <div class="result-header">
+        <span class="badge" id="badgeUrgency"></span>
+        <span class="badge badge-type" id="badgeType"></span>
+      </div>
+
+      <div class="field-group">
+        <label>Nombre</label>
+        <input type="text" id="fieldName" />
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Entidad</label>
+          <input type="text" id="fieldEntity" />
+        </div>
+        <div class="field-group">
+          <label>Monto</label>
+          <input type="text" id="fieldAmount" />
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Fecha límite</label>
+          <input type="text" id="fieldDeadline" />
+        </div>
+        <div class="field-group">
+          <label>Tipo</label>
+          <select id="fieldType">
+            <option value="financiamiento">💰 Subsidio</option>
+            <option value="licitacion">🏛️ Licitación</option>
+            <option value="hackaton">⚡ Hackaton</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>🔗 Bases / Formulario</label>
+        <div class="url-row">
+          <input type="url" id="fieldBasesUrl" placeholder="https://…" />
+          <a id="linkBases" href="#" target="_blank" class="btn-link hidden">Abrir</a>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>📋 Resumen de Bases</label>
+        <textarea id="fieldBasesResumen" rows="5" placeholder="REQUISITOS: …&#10;ENTREGABLES: …&#10;EVALUACIÓN: …"></textarea>
+      </div>
+
+      <!-- PDF/document links found on page -->
+      <div id="pdfLinksSection" class="hidden">
+        <label>📎 Documentos encontrados en la página</label>
+        <div id="pdfLinksList" class="pdf-list"></div>
+      </div>
+
+      <div class="dup-warning hidden" id="dupWarning">
+        ⚠ Posible duplicado detectado
+      </div>
+
+      <button class="btn btn-success" id="btnSend">
+        <span class="btn-icon">✅</span>
+        Enviar al Radar
+      </button>
+      <button class="btn btn-ghost btn-sm" id="btnReset">Analizar otra página</button>
+    </div>
+
+    <!-- Success -->
+    <div class="section hidden" id="sectionSuccess">
+      <div class="success-box">
+        ✅ Convocatoria enviada al Radar.<br/>
+        <small>Revísala en la tab Importar de la app.</small>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="btnSuccessReset">Importar otra</button>
+    </div>
+
+    <!-- Settings toggle -->
+    <div class="settings-bar">
+      <button class="btn-settings" id="btnToggleSettings">⚙ API Key</button>
+    </div>
+    <div class="settings-panel hidden" id="settingsPanel">
+      <label class="settings-label">OpenRouter API Key</label>
+      <input type="password" id="inputApiKey" placeholder="sk-or-…" autocomplete="off" />
+      <button class="btn btn-ghost btn-sm" id="btnSaveKey">Guardar</button>
+      <div class="settings-hint">
+        Obtén tu key en <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>.<br/>
+        Se guarda localmente en el navegador.
+      </div>
+    </div>
+
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

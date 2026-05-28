@@ -13,6 +13,9 @@ interface ViewImportProps {
   onDeleteCustomFund: (id: string) => void;
   initialUrl?: string;
   onUrlConsumed?: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initialDraft?: Record<string, any> | null;
+  onDraftConsumed?: () => void;
 }
 
 const OR_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined;
@@ -136,7 +139,7 @@ const PERPLEXITY_MODELS = [
   "perplexity/sonar-pro",
 ] as const;
 
-export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFund, initialUrl, onUrlConsumed }: ViewImportProps) {
+export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFund, initialUrl, onUrlConsumed, initialDraft, onDraftConsumed }: ViewImportProps) {
   const [inputText, setInputText] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
@@ -321,6 +324,14 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialUrl]);
+
+  // Consume draft pre-filled by Chrome extension via ?import= URL param
+  useEffect(() => {
+    if (!initialDraft) return;
+    applyParsedJson(JSON.stringify(initialDraft), String(initialDraft.url ?? ""));
+    onDraftConsumed?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDraft]);
 
   const handleAnalyze = async () => {
     if (!inputText.trim() || !client) return;

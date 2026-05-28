@@ -1,0 +1,158 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  width: 380px;
+  min-height: 120px;
+  font-family: 'Courier New', Courier, monospace;
+  background: #f5f0e8;
+  color: #1a1a1a;
+  font-size: 11px;
+}
+
+.hidden { display: none !important; }
+
+/* Header */
+.header {
+  background: #1a1a1a;
+  color: #f5f0e8;
+  padding: 10px 14px;
+  border-bottom: 2px solid #1a1a1a;
+}
+.header-brand { display: flex; align-items: center; gap: 8px; }
+.header-icon { font-size: 18px; }
+.header-title { font-weight: 900; font-size: 13px; letter-spacing: 0.1em; }
+.header-sub { font-size: 9px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 1px; }
+
+/* Page info */
+.page-info {
+  padding: 8px 14px;
+  background: #ede8e0;
+  border-bottom: 1px solid rgba(26,26,26,0.15);
+}
+.page-url {
+  font-size: 10px; font-weight: 700; color: #1a1a1a; opacity: 0.7;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.page-title {
+  font-size: 10px; color: #1a1a1a; opacity: 0.55; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Section */
+.section { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+
+/* Buttons */
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 14px; font-family: inherit; font-size: 11px;
+  font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;
+  border: 2px solid #1a1a1a; cursor: pointer; transition: all 0.1s;
+  box-shadow: 3px 3px 0px rgba(0,0,0,0.35);
+}
+.btn:active { transform: translateY(1px); box-shadow: 1px 1px 0 rgba(0,0,0,0.3); }
+.btn-icon { font-size: 13px; }
+.btn-primary { background: #1a1a1a; color: #f5f0e8; }
+.btn-primary:hover { background: #333; }
+.btn-success { background: #16a34a; color: white; }
+.btn-success:hover { background: #15803d; }
+.btn-ghost { background: #f5f0e8; color: #1a1a1a; box-shadow: 2px 2px 0 rgba(0,0,0,0.2); }
+.btn-ghost:hover { background: #ede8e0; }
+.btn-sm { padding: 5px 10px; font-size: 10px; }
+
+.hint { font-size: 9px; color: rgba(26,26,26,0.5); line-height: 1.5; }
+
+/* Loading */
+.loading { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #555; padding: 4px 0; }
+.spinner {
+  width: 14px; height: 14px; border: 2px solid rgba(26,26,26,0.15);
+  border-top-color: #1a1a1a; border-radius: 50%;
+  animation: spin 0.7s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Error */
+.error-box {
+  background: #fef2f2; border: 1px solid #dc2626; color: #dc2626;
+  padding: 8px; font-size: 10px; line-height: 1.5;
+}
+
+/* Result */
+.result-header { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge {
+  display: inline-block; padding: 2px 8px; font-size: 9px; font-weight: 900;
+  text-transform: uppercase; letter-spacing: 0.1em; border: 1px solid #1a1a1a;
+}
+.badge-CRITICAL { background: #dc2626; color: white; }
+.badge-HIGH { background: #f59e0b; color: #1a1a1a; }
+.badge-MEDIUM { background: #3b82f6; color: white; }
+.badge-LOW { background: #16a34a; color: white; }
+.badge-CLOSED { background: #6b7280; color: white; }
+.badge-type { background: #ede8e0; color: #1a1a1a; }
+
+.field-group { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.field-row { display: flex; gap: 8px; }
+label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.5; }
+
+input[type="text"], input[type="url"], input[type="password"], select, textarea {
+  width: 100%; border: 2px solid #1a1a1a; background: #ede8e0;
+  font-family: inherit; font-size: 11px; color: #1a1a1a;
+  padding: 5px 8px; outline: none;
+}
+input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 2px rgba(26,26,26,0.2); }
+textarea { resize: vertical; line-height: 1.5; }
+select { cursor: pointer; }
+
+.url-row { display: flex; gap: 6px; }
+.url-row input { flex: 1; }
+.btn-link {
+  display: flex; align-items: center; padding: 5px 8px;
+  background: #3b82f6; color: white; border: 2px solid #1a1a1a;
+  font-family: inherit; font-size: 10px; font-weight: 700;
+  text-decoration: none; white-space: nowrap;
+}
+
+.dup-warning {
+  background: #fef9c3; border: 1px solid #ca8a04; color: #92400e;
+  padding: 6px 8px; font-size: 10px; font-weight: 700;
+}
+
+/* Success */
+.success-box {
+  background: #f0fdf4; border: 2px solid #16a34a; color: #15803d;
+  padding: 12px; font-size: 11px; line-height: 1.7; text-align: center;
+}
+.success-box small { font-size: 9px; opacity: 0.8; }
+
+/* PDF links */
+.pdf-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.pdf-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  background: #ede8e0; border: 1px solid rgba(26,26,26,0.2); padding: 5px 8px;
+}
+.pdf-link-label { font-size: 10px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdf-link-btn {
+  font-family: inherit; font-size: 9px; font-weight: 700; border: 1px solid #1a1a1a;
+  background: #3b82f6; color: white; padding: 2px 6px; cursor: pointer; white-space: nowrap;
+  text-decoration: none; display: inline-block;
+}
+.pdf-link-use {
+  font-family: inherit; font-size: 9px; font-weight: 700; border: 1px solid #1a1a1a;
+  background: #16a34a; color: white; padding: 2px 6px; cursor: pointer; white-space: nowrap;
+}
+
+/* Settings */
+.settings-bar {
+  border-top: 1px solid rgba(26,26,26,0.1);
+  padding: 6px 14px;
+  background: #ede8e0;
+}
+.btn-settings {
+  background: none; border: none; font-family: inherit; font-size: 9px;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: rgba(26,26,26,0.5); cursor: pointer; padding: 0;
+}
+.btn-settings:hover { color: #1a1a1a; }
+.settings-panel { padding: 10px 14px; background: #ede8e0; border-top: 1px solid rgba(26,26,26,0.1); gap: 6px; display: flex; flex-direction: column; }
+.settings-label { font-size: 9px; font-weight: 700; text-transform: uppercase; opacity: 0.5; }
+.settings-hint { font-size: 9px; opacity: 0.5; line-height: 1.6; }
+.settings-hint a { color: #3b82f6; }
