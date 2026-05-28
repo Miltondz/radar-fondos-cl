@@ -116,8 +116,8 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const PERPLEXITY_MODELS = [
-  "perplexity/llama-3.1-sonar-small-128k-online",
-  "perplexity/llama-3.1-sonar-large-128k-online",
+  "perplexity/sonar",
+  "perplexity/sonar-pro",
 ] as const;
 
 export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFund, initialUrl, onUrlConsumed }: ViewImportProps) {
