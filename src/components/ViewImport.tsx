@@ -1,0 +1,517 @@
+import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Sparkles, Trash2, CheckCircle, AlertCircle, Plus, RefreshCcw, Package } from "lucide-react";
+import OpenAI from "openai";
+import { Fund, FundStatus } from "../types";
+import { ALL_FUNDS } from "../data";
+import SectionHeader from "./SectionHeader";
+import { SECTION_COPY } from "../copy";
+
+interface ViewImportProps {
+  customFunds: Fund[];
+  onImportFund: (fund: Fund) => void;
+  onDeleteCustomFund: (id: string) => void;
+}
+
+const OR_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined;
+
+const MODELS = [
+  "openai/gpt-oss-120b:free",
+  "minimax/minimax-m2.5:free",
+  "nvidia/nemotron-3-super-120b-a12b:free",
+  "google/gemini-2.5-flash",
+] as const;
+
+const EXTRACTION_SYSTEM_PROMPT = `Eres un asistente de extracción de datos para "Radar Fondos CL", plataforma de inteligencia de financiamiento para startups chilenas.
+
+Tu tarea: analizar el contenido proporcionado (texto de web, redes sociales o publicaciones) y extraer los datos de una convocatoria de fondos, licitación o hackaton en formato JSON.
+
+REGLAS ESTRICTAS:
+1. Devuelve SOLO JSON válido. Sin markdown, sin explicaciones, sin texto extra.
+2. Si el contenido NO contiene una convocatoria real, devuelve exactamente: {"error": "No se encontró información de una convocatoria en el contenido."}
+3. Infiere el campo type: "financiamiento" (subsidio/capital semilla/no reembolsable), "licitacion" (contrato público/compra estatal), "hackaton" (competencia/desafío/concurso de innovación).
+4. amountNumber debe ser solo el número entero en CLP. Si está en USD multiplica por 950. Si no hay dato usa 0.
+5. urgency: "CRITICAL" si cierra en menos de 7 días desde hoy (2026-05-28), "HIGH" si menos de 30 días, "MEDIUM" si menos de 90 días, "LOW" en otro caso, "CLOSED" si ya cerró.
+6. Extrae hasta 5 requisitos clave en el array requirements.
+
+Formato JSON exacto a devolver:
+{
+  "name": "Nombre oficial completo de la convocatoria",
+  "entity": "Organismo convocante (CORFO, SERCOTEC, Startup Chile, ANID, u otro)",
+  "amount": "Monto como string legible (ej: 'hasta $10.000.000 CLP')",
+  "amountNumber": 10000000,
+  "deadline": "Fecha límite en español (ej: '30 junio 2026')",
+  "deadlineISO": "YYYY-MM-DD o string vacío si desconocido",
+  "description": "Descripción clara del programa (máx 300 caracteres)",
+  "category": "Seed, Growth, Innovation, Credit, R&D u otro",
+  "type": "financiamiento|licitacion|hackaton",
+  "url": "URL fuente si fue proporcionada, o string vacío",
+  "organizer": "Igual a entity o más específico si se menciona",
+  "requirements": ["requisito 1", "requisito 2"],
+  "urgency": "CRITICAL|HIGH|MEDIUM|LOW|CLOSED",
+  "tips": "Nota clave para el postulante (máx 100 caracteres)",
+  "chileCode": "Código de licitación si aplica, si no string vacío",
+  "address": "Dirección si el evento es presencial, si no string vacío"
+}`;
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[áàä]/g, "a").replace(/[éèë]/g, "e")
+    .replace(/[íìï]/g, "i").replace(/[óòö]/g, "o")
+    .replace(/[úùü]/g, "u").replace(/ñ/g, "n")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+}
+
+function normalizeName(s: string): string {
+  return s.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function checkDuplicate(name: string, entity: string, allFunds: Fund[], customFunds: Fund[]): Fund | null {
+  const nName = normalizeName(name);
+  const nEntity = normalizeName(entity);
+  return [...allFunds, ...customFunds].find(f =>
+    normalizeName(f.name) === nName ||
+    (normalizeName(f.entity) === nEntity && normalizeName(f.name).slice(0, 20) === nName.slice(0, 20))
+  ) ?? null;
+}
+
+type FundType = "financiamiento" | "licitacion" | "hackaton";
+
+interface FundDraft {
+  name: string;
+  entity: string;
+  amount: string;
+  amountNumber: number;
+  deadline: string;
+  deadlineISO: string;
+  description: string;
+  category: string;
+  type: FundType;
+  url: string;
+  organizer: string;
+  requirements: string[];
+  urgency: Fund["urgency"];
+  tips: string;
+  chileCode: string;
+  address: string;
+}
+
+const URGENCY_COLORS: Record<string, string> = {
+  CRITICAL: "bg-alert text-white",
+  HIGH: "bg-warning text-ink",
+  MEDIUM: "bg-accent-blue text-white",
+  LOW: "bg-accent-green text-white",
+  CLOSED: "bg-ink/40 text-white",
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  financiamiento: "💰 Subsidio",
+  licitacion: "🏛️ Licitación",
+  hackaton: "⚡ Hackaton",
+};
+
+export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFund }: ViewImportProps) {
+  const [inputText, setInputText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<FundDraft | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const client = OR_KEY
+    ? new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: OR_KEY,
+        dangerouslyAllowBrowser: true,
+        defaultHeaders: {
+          "HTTP-Referer": "https://radar-fondos-cl.netlify.app",
+          "X-Title": "Radar Fondos CL",
+        },
+      })
+    : null;
+
+  const duplicate = useMemo(
+    () => draft ? checkDuplicate(draft.name, draft.entity, ALL_FUNDS, customFunds) : null,
+    [draft, customFunds]
+  );
+
+  const handleAnalyze = async () => {
+    if (!inputText.trim() || !client) return;
+    setLoading(true);
+    setError(null);
+    setDraft(null);
+    setSuccess(false);
+
+    let lastError: Error | null = null;
+    for (const model of MODELS) {
+      try {
+        const completion = await client.chat.completions.create({
+          model,
+          messages: [
+            { role: "system", content: EXTRACTION_SYSTEM_PROMPT },
+            { role: "user", content: `Analiza este contenido y extrae la convocatoria:\n\n${inputText.slice(0, 4000)}` },
+          ],
+          temperature: 0.1,
+          max_tokens: 1500,
+        });
+        const raw = completion.choices[0]?.message?.content ?? "";
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("Respuesta sin JSON válido.");
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.error) {
+          setError(parsed.error);
+          setLoading(false);
+          return;
+        }
+        const typeVal = ["financiamiento", "licitacion", "hackaton"].includes(parsed.type)
+          ? (parsed.type as FundType)
+          : "financiamiento";
+        const urgencyVal = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "CLOSED"].includes(parsed.urgency)
+          ? (parsed.urgency as Fund["urgency"])
+          : "MEDIUM";
+        setDraft({
+          name: String(parsed.name ?? "Sin nombre"),
+          entity: String(parsed.entity ?? "Desconocido"),
+          amount: String(parsed.amount ?? "N/D"),
+          amountNumber: Number(parsed.amountNumber) || 0,
+          deadline: String(parsed.deadline ?? "Por confirmar"),
+          deadlineISO: String(parsed.deadlineISO ?? ""),
+          description: String(parsed.description ?? ""),
+          category: String(parsed.category ?? "Innovation"),
+          type: typeVal,
+          url: String(parsed.url ?? ""),
+          organizer: String(parsed.organizer ?? parsed.entity ?? ""),
+          requirements: Array.isArray(parsed.requirements) ? parsed.requirements.map(String) : [],
+          urgency: urgencyVal,
+          tips: String(parsed.tips ?? ""),
+          chileCode: String(parsed.chileCode ?? ""),
+          address: String(parsed.address ?? ""),
+        });
+        setLoading(false);
+        return;
+      } catch (e) {
+        lastError = e as Error;
+      }
+    }
+    setError(`Error al analizar: ${lastError?.message ?? "Ningún modelo disponible."}`);
+    setLoading(false);
+  };
+
+  const handleSave = () => {
+    if (!draft) return;
+    const fund: Fund = {
+      id: `custom-${slugify(draft.name)}-${Date.now().toString(36)}`,
+      name: draft.name,
+      entity: draft.entity,
+      amount: draft.amount,
+      amountNumber: draft.amountNumber,
+      deadline: draft.deadline,
+      deadlineISO: draft.deadlineISO || undefined,
+      status: FundStatus.OPEN,
+      urgency: draft.urgency,
+      category: draft.category,
+      description: draft.description,
+      cofinancing: "",
+      requirements: draft.requirements,
+      eligibilityGenderRequired: false,
+      eligibilitySalesRestricted: false,
+      SIIRequired: false,
+      requiresSpA: false,
+      miltonAplica: "Verificar elegibilidad manualmente",
+      tips: draft.tips,
+      url: draft.url,
+      referenceUrlText: "Más información",
+      type: draft.type,
+      chileCode: draft.chileCode || undefined,
+      organizer: draft.organizer || undefined,
+      address: draft.address || undefined,
+    };
+    onImportFund(fund);
+    setSuccess(true);
+    setDraft(null);
+    setInputText("");
+    setTimeout(() => setSuccess(false), 4000);
+  };
+
+  return (
+    <div className="space-y-8">
+      <SectionHeader copy={SECTION_COPY.importar} />
+
+      {/* Step 1: Input */}
+      <section className="border-2 border-ink bg-paper shadow-[4px_4px_0px_#1a1a1a] p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <span className="bg-ink text-paper font-mono font-black text-xs px-2 py-0.5 select-none">1</span>
+          <h2 className="font-display font-black text-base uppercase tracking-wide text-ink">Pega el contenido a analizar</h2>
+        </div>
+        <p className="text-xs font-mono text-ink/60 leading-relaxed">
+          Copia el texto completo de una publicación en Instagram, LinkedIn, Facebook o una página web oficial.
+          Incluye el nombre del programa, entidad, monto, fecha y requisitos si los menciona.
+        </p>
+        <textarea
+          className="w-full h-44 border-2 border-ink bg-paper-dark font-mono text-xs text-ink p-3 resize-y focus:outline-none focus:ring-2 focus:ring-ink/40 placeholder:text-ink/35"
+          placeholder={`Ejemplos de texto a pegar:\n\n• "CORFO abre convocatoria Capital Semilla hasta $20M CLP, cierre 30 junio 2026. Requisitos: startup tecnológica, equipo de 2+ personas..."\n\n• Texto completo de publicación en LinkedIn de Startup Chile\n\n• Descripción de licitación copiada de Mercado Público`}
+          value={inputText}
+          onChange={e => setInputText(e.target.value)}
+          disabled={loading}
+        />
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={handleAnalyze}
+            disabled={!inputText.trim() || loading || !client}
+            className="flex items-center gap-2 bg-ink text-paper px-5 py-2.5 font-mono font-black text-xs uppercase tracking-wide border-2 border-ink shadow-[3px_3px_0px_rgba(0,0,0,0.4)] hover:bg-ink/85 active:translate-y-[1px] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer select-none"
+          >
+            {loading ? (
+              <><RefreshCcw className="h-3.5 w-3.5 animate-spin" /> Analizando…</>
+            ) : (
+              <><Sparkles className="h-3.5 w-3.5" /> Analizar con IA</>
+            )}
+          </button>
+          {inputText.trim() && (
+            <span className="text-[10px] font-mono text-ink/40">{inputText.length} caracteres</span>
+          )}
+          {!client && (
+            <span className="text-xs font-mono text-alert font-bold">
+              ⚠ Configura VITE_OPENROUTER_API_KEY en .env.local para usar esta función.
+            </span>
+          )}
+        </div>
+      </section>
+
+      {/* Error */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="border-2 border-alert bg-alert/10 p-4 flex items-start gap-3"
+          >
+            <AlertCircle className="h-4 w-4 text-alert shrink-0 mt-0.5" />
+            <p className="text-xs font-mono text-alert">{error}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Success toast */}
+      <AnimatePresence>
+        {success && (
+          <motion.div
+            key="success"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="border-2 border-accent-green bg-accent-green/10 p-4 flex items-center gap-3"
+          >
+            <CheckCircle className="h-4 w-4 text-accent-green shrink-0" />
+            <p className="text-xs font-mono text-accent-green font-bold">
+              Convocatoria agregada al radar. Aparece en la sección correspondiente.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Step 2: Preview + Edit */}
+      <AnimatePresence>
+        {draft && (
+          <motion.section
+            key="draft"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="border-2 border-ink bg-paper shadow-[4px_4px_0px_#1a1a1a] p-6 space-y-5"
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="bg-ink text-paper font-mono font-black text-xs px-2 py-0.5 select-none">2</span>
+              <h2 className="font-display font-black text-base uppercase tracking-wide text-ink">Revisar y confirmar</h2>
+              {duplicate && (
+                <span className="ml-auto flex items-center gap-1.5 bg-warning/20 border border-warning px-2.5 py-1 text-[10px] font-mono font-bold text-ink">
+                  ⚠ Posible duplicado: {duplicate.name}
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <span className={`px-2.5 py-0.5 text-[10px] font-mono font-bold border border-ink ${URGENCY_COLORS[draft.urgency]}`}>
+                {draft.urgency}
+              </span>
+              <span className="px-2.5 py-0.5 text-[10px] font-mono font-bold border border-ink bg-paper-dark text-ink">
+                {TYPE_LABELS[draft.type]}
+              </span>
+              <span className="px-2.5 py-0.5 text-[10px] font-mono text-ink/50 border border-ink/30 bg-paper">
+                {draft.category}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">Nombre</label>
+                <input
+                  className="w-full border-2 border-ink bg-paper-dark font-mono text-sm text-ink px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ink/30"
+                  value={draft.name}
+                  onChange={e => setDraft(d => d ? { ...d, name: e.target.value } : d)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">Entidad</label>
+                <input
+                  className="w-full border-2 border-ink bg-paper-dark font-mono text-sm text-ink px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ink/30"
+                  value={draft.entity}
+                  onChange={e => setDraft(d => d ? { ...d, entity: e.target.value } : d)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">Tipo</label>
+                <select
+                  className="w-full border-2 border-ink bg-paper-dark font-mono text-sm text-ink px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ink/30 cursor-pointer"
+                  value={draft.type}
+                  onChange={e => setDraft(d => d ? { ...d, type: e.target.value as FundType } : d)}
+                >
+                  <option value="financiamiento">💰 Subsidio / Financiamiento</option>
+                  <option value="licitacion">🏛️ Licitación</option>
+                  <option value="hackaton">⚡ Hackaton</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">Monto</label>
+                <input
+                  className="w-full border-2 border-ink bg-paper-dark font-mono text-sm text-ink px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ink/30"
+                  value={draft.amount}
+                  onChange={e => setDraft(d => d ? { ...d, amount: e.target.value } : d)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">Fecha límite</label>
+                <input
+                  className="w-full border-2 border-ink bg-paper-dark font-mono text-sm text-ink px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ink/30"
+                  value={draft.deadline}
+                  onChange={e => setDraft(d => d ? { ...d, deadline: e.target.value } : d)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">Urgencia</label>
+                <select
+                  className="w-full border-2 border-ink bg-paper-dark font-mono text-sm text-ink px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ink/30 cursor-pointer"
+                  value={draft.urgency}
+                  onChange={e => setDraft(d => d ? { ...d, urgency: e.target.value as Fund["urgency"] } : d)}
+                >
+                  <option value="CRITICAL">CRITICAL — cierra en &lt;7 días</option>
+                  <option value="HIGH">HIGH — cierra en &lt;30 días</option>
+                  <option value="MEDIUM">MEDIUM — cierra en &lt;90 días</option>
+                  <option value="LOW">LOW — plazo amplio</option>
+                  <option value="CLOSED">CLOSED — ya cerró</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">Descripción</label>
+                <textarea
+                  className="w-full border-2 border-ink bg-paper-dark font-mono text-xs text-ink px-3 py-2 resize-none h-20 focus:outline-none focus:ring-2 focus:ring-ink/30"
+                  value={draft.description}
+                  onChange={e => setDraft(d => d ? { ...d, description: e.target.value } : d)}
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-1">URL fuente</label>
+                <input
+                  className="w-full border-2 border-ink bg-paper-dark font-mono text-xs text-ink px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ink/30"
+                  value={draft.url}
+                  onChange={e => setDraft(d => d ? { ...d, url: e.target.value } : d)}
+                  placeholder="https://…"
+                />
+              </div>
+
+              {draft.requirements.length > 0 && (
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-mono font-bold uppercase text-ink/50 mb-2">Requisitos extraídos</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {draft.requirements.map((req, i) => (
+                      <span key={i} className="bg-paper-dark border border-ink px-2 py-0.5 text-[10px] font-mono text-ink">
+                        {req}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-3 border-t border-ink/20">
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-2 bg-accent-green text-white px-5 py-2.5 font-mono font-black text-xs uppercase tracking-wide border-2 border-ink shadow-[3px_3px_0px_rgba(0,0,0,0.4)] hover:opacity-90 active:translate-y-[1px] transition-all cursor-pointer select-none"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Agregar al Radar
+              </button>
+              <button
+                onClick={() => { setDraft(null); setError(null); }}
+                className="flex items-center gap-2 bg-paper text-ink px-4 py-2.5 font-mono font-bold text-xs uppercase tracking-wide border-2 border-ink hover:bg-paper-dark active:translate-y-[1px] transition-all cursor-pointer select-none"
+              >
+                Cancelar
+              </button>
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
+      {/* Step 3: Imported list */}
+      {customFunds.length > 0 && (
+        <section className="border-2 border-ink bg-paper shadow-[4px_4px_0px_#1a1a1a] p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="bg-ink text-paper font-mono font-black text-xs px-2 py-0.5 select-none">✓</span>
+            <h2 className="font-display font-black text-base uppercase tracking-wide text-ink">
+              Convocatorias importadas ({customFunds.length})
+            </h2>
+          </div>
+          <div className="space-y-2">
+            {customFunds.map(fund => (
+              <div
+                key={fund.id}
+                className="flex items-start justify-between gap-4 border border-ink/25 bg-paper-dark p-4"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className={`px-2 py-0.5 text-[9px] font-mono font-bold border border-ink ${URGENCY_COLORS[fund.urgency]}`}>
+                      {fund.urgency}
+                    </span>
+                    <span className="text-[9px] font-mono text-ink/50 border border-ink/25 px-1.5 py-0.5 bg-paper">
+                      {TYPE_LABELS[fund.type ?? "financiamiento"]}
+                    </span>
+                    <span className="text-[9px] font-mono font-bold text-ink/30 uppercase tracking-wider">IMPORTADO</span>
+                  </div>
+                  <p className="font-display font-bold text-sm text-ink leading-tight">{fund.name}</p>
+                  <p className="text-[10px] font-mono text-ink/55 mt-0.5">
+                    {fund.entity} · {fund.amount} · cierre: {fund.deadline}
+                  </p>
+                </div>
+                <button
+                  onClick={() => onDeleteCustomFund(fund.id)}
+                  className="shrink-0 p-2 border border-ink/25 hover:border-alert hover:bg-alert/10 text-ink/35 hover:text-alert transition-colors cursor-pointer"
+                  title="Eliminar convocatoria importada"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {customFunds.length === 0 && !draft && !loading && (
+        <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-ink/20 text-ink/35">
+          <Package className="h-10 w-10 mb-3 opacity-25" />
+          <p className="font-mono text-xs uppercase tracking-wider">Aún no has importado convocatorias</p>
+          <p className="font-mono text-[10px] mt-1 text-ink/25">Pega texto de Instagram, LinkedIn o páginas web arriba</p>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -17,9 +17,10 @@ interface ViewHackatonesProps {
   stackedFunds: Fund[];
   starredFunds?: string[];
   onToggleStar?: (id: string) => void;
+  extraFunds?: Fund[];
 }
 
-export default function ViewHackatones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar }: ViewHackatonesProps) {
+export default function ViewHackatones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [] }: ViewHackatonesProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "PREMIO_EFECTIVO" | "TECNOLOGICO">("TODOS");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -32,8 +33,8 @@ export default function ViewHackatones({ profile, onAddToStack, stackedFunds, st
   };
 
   const hackatones = useMemo(() => {
-    return ALL_FUNDS.filter(f => f.type === "hackaton");
-  }, []);
+    return [...ALL_FUNDS, ...extraFunds].filter(f => f.type === "hackaton");
+  }, [extraFunds]);
 
   const computeEligibility = (fund: Fund) => {
     if (fund.eligibilityGenderRequired && !profile.hasWoman) {

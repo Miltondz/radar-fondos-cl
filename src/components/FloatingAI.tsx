@@ -21,6 +21,7 @@ const VIEW_LABELS: Record<string, string> = {
   agenda: "Agenda",
   ia: "IA",
   configuracion: "Config",
+  importar: "Importar",
 };
 
 export default function FloatingAI({ profile, stackedFunds, currentView }: FloatingAIProps) {

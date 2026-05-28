@@ -17,9 +17,10 @@ interface ViewFinanciamientosProps {
   stackedFunds: Fund[];
   starredFunds?: string[];
   onToggleStar?: (id: string) => void;
+  extraFunds?: Fund[];
 }
 
-export default function ViewFinanciamientos({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar }: ViewFinanciamientosProps) {
+export default function ViewFinanciamientos({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [] }: ViewFinanciamientosProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "URGENTES" | "MUJERES" | "SEMILLA" | "ID_INNOVACION">("TODOS");
   const [sortBy, setSortBy] = useState<"URGENCY" | "AMOUNT" | "CLOSE_DATE">("URGENCY");
@@ -34,8 +35,8 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
 
   // Filter content
   const financiamientos = useMemo(() => {
-    return ALL_FUNDS.filter(f => f.type === "financiamiento");
-  }, []);
+    return [...ALL_FUNDS, ...extraFunds].filter(f => f.type === "financiamiento");
+  }, [extraFunds]);
 
   const computeEligibility = (fund: Fund) => {
     if (fund.status === FundStatus.CLOSED) {

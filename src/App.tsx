@@ -18,6 +18,7 @@ import PlanDeAccion from "./components/PlanDeAccion";
 import Resources from "./components/Resources";
 import SettingsPanel from "./components/SettingsPanel";
 import OnboardingWizard from "./components/OnboardingWizard";
+import ViewImport from "./components/ViewImport";
 
 export default function App() {
   // 1. Theme State & Storage
@@ -111,7 +112,17 @@ export default function App() {
     return [];
   });
 
-  const [activeTab, setActiveTab] = useState<"landing" | "financiamientos" | "licitaciones" | "hackatones" | "roadmap" | "agenda" | "ia" | "configuracion">("landing");
+  const [customFunds, setCustomFunds] = useState<Fund[]>(() => {
+    try {
+      const saved = localStorage.getItem("milton_radar_custom_funds");
+      if (saved) return JSON.parse(saved) as Fund[];
+    } catch (e) {
+      console.warn("Could not read custom funds from localStorage", e);
+    }
+    return [];
+  });
+
+  const [activeTab, setActiveTab] = useState<"landing" | "financiamientos" | "licitaciones" | "hackatones" | "roadmap" | "agenda" | "ia" | "configuracion" | "importar">("landing");
 
   useEffect(() => {
     try { localStorage.setItem("milton_radar_profile", JSON.stringify(profile)); } catch (_) {}
@@ -139,6 +150,18 @@ export default function App() {
     try { localStorage.setItem("milton_radar_roadmap_ticks", JSON.stringify(completedSteps)); } catch (_) {}
   }, [completedSteps]);
 
+  useEffect(() => {
+    try { localStorage.setItem("milton_radar_custom_funds", JSON.stringify(customFunds)); } catch (_) {}
+  }, [customFunds]);
+
+  const handleImportFund = (fund: Fund) => {
+    setCustomFunds(prev => [...prev, fund]);
+  };
+
+  const handleDeleteCustomFund = (id: string) => {
+    setCustomFunds(prev => prev.filter(f => f.id !== id));
+  };
+
   // 3. Helper Interactions
   const handleAddToStack = (item: Fund) => {
     if (!stackedFunds.some(f => f.id === item.id)) {
@@ -165,12 +188,13 @@ export default function App() {
     );
   };
 
-  // State calculations
-  const criticalCount = ALL_FUNDS.filter(f => f.urgency === "CRITICAL").length;
-  const countFinanciamientos = ALL_FUNDS.filter(f => f.type === "financiamiento").length;
-  const countLicitaciones = ALL_FUNDS.filter(f => f.type === "licitacion").length;
-  const countHackatones = ALL_FUNDS.filter(f => f.type === "hackaton").length;
-  const urgentFunds = ALL_FUNDS.filter(f => f.urgency === "CRITICAL" || f.urgency === "HIGH")
+  // State calculations — includes custom imported funds
+  const allFunds = [...ALL_FUNDS, ...customFunds];
+  const criticalCount = allFunds.filter(f => f.urgency === "CRITICAL").length;
+  const countFinanciamientos = allFunds.filter(f => f.type === "financiamiento").length;
+  const countLicitaciones = allFunds.filter(f => f.type === "licitacion").length;
+  const countHackatones = allFunds.filter(f => f.type === "hackaton").length;
+  const urgentFunds = allFunds.filter(f => f.urgency === "CRITICAL" || f.urgency === "HIGH")
     .sort((a, b) => {
       const m: Record<string, number> = { CRITICAL: 1, HIGH: 2 };
       return (m[a.urgency] || 9) - (m[b.urgency] || 9);
@@ -195,7 +219,7 @@ export default function App() {
             <span>Milton Workspace</span>
             <span>/</span>
             <span className="font-bold text-ink">
-              {activeTab === "landing" ? "Inicio de Reporte" : activeTab === "financiamientos" ? "Fomento y Subsidios" : activeTab === "licitaciones" ? "Tender y Licitaciones" : activeTab === "hackatones" ? "Retos Avanzados" : activeTab === "agenda" ? "Agenda y Timeline" : activeTab === "ia" ? "Asesor IA Gemini" : activeTab === "configuracion" ? "Configuración" : "Plan de Acción"}
+              {activeTab === "landing" ? "Inicio de Reporte" : activeTab === "financiamientos" ? "Fomento y Subsidios" : activeTab === "licitaciones" ? "Tender y Licitaciones" : activeTab === "hackatones" ? "Retos Avanzados" : activeTab === "agenda" ? "Agenda y Timeline" : activeTab === "ia" ? "Asesor IA Gemini" : activeTab === "configuracion" ? "Configuración" : activeTab === "importar" ? "Importar Convocatoria" : "Plan de Acción"}
             </span>
           </div>
 
@@ -305,6 +329,15 @@ export default function App() {
           >
             ⚙️ Configuración
           </button>
+
+          <button
+            onClick={() => setActiveTab("importar")}
+            className={`flex-1 min-w-[130px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
+              activeTab === "importar" ? "bg-accent-green text-white font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
+            }`}
+          >
+            📥 Importar{customFunds.length > 0 ? ` (${customFunds.length})` : ""}
+          </button>
         </div>
 
         {/* Reactive Tab Component Router Frame */}
@@ -339,6 +372,7 @@ export default function App() {
                   stackedFunds={stackedFunds}
                   starredFunds={starredFunds}
                   onToggleStar={toggleStar}
+                  extraFunds={customFunds}
                 />
               )}
 
@@ -349,6 +383,7 @@ export default function App() {
                   stackedFunds={stackedFunds}
                   starredFunds={starredFunds}
                   onToggleStar={toggleStar}
+                  extraFunds={customFunds}
                 />
               )}
 
@@ -359,6 +394,7 @@ export default function App() {
                   stackedFunds={stackedFunds}
                   starredFunds={starredFunds}
                   onToggleStar={toggleStar}
+                  extraFunds={customFunds}
                 />
               )}
 
@@ -391,6 +427,14 @@ export default function App() {
                 <SettingsPanel
                   profile={profile}
                   stackedFunds={stackedFunds}
+                />
+              )}
+
+              {activeTab === "importar" && (
+                <ViewImport
+                  customFunds={customFunds}
+                  onImportFund={handleImportFund}
+                  onDeleteCustomFund={handleDeleteCustomFund}
                 />
               )}
             </motion.div>

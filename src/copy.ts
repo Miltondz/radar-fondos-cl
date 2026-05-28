@@ -112,4 +112,18 @@ export const SECTION_COPY: Record<string, SectionCopy> = {
     howToUse:
       "Edita el prompt de sistema para cambiar el comportamiento general. Edita los presets para modificar los atajos rápidos. Usa variables {{nombre}} para insertar datos dinámicos. Guarda y el cambio es inmediato.",
   },
+  importar: {
+    title: "Importar Convocatoria",
+    subtitle: "Agrega fondos desde Instagram, LinkedIn o cualquier página web",
+    description:
+      "Pega texto copiado de una publicación en redes sociales o web sobre una convocatoria, licitación o hackaton. La IA extrae automáticamente los datos clave y los agrega al radar en la sección correspondiente.",
+    howToUse:
+      "Copia el texto completo de la publicación (incluye nombre del fondo, monto, fecha límite y requisitos si los hay). Pégalo en el área de texto y haz clic en Analizar. Revisa y edita los campos extraídos antes de confirmar.",
+    helpItems: [
+      "Funciona con publicaciones de Instagram, LinkedIn, Facebook y páginas web",
+      "Cuanto más texto copies, mejor será la extracción",
+      "Puedes editar todos los campos antes de agregar al radar",
+      "Las convocatorias importadas aparecen en la sección correcta (Subsidios, Licitaciones o Hackatones)",
+    ],
+  },
 };

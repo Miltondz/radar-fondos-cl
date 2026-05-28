@@ -17,9 +17,10 @@ interface ViewLicitacionesProps {
   stackedFunds: Fund[];
   starredFunds?: string[];
   onToggleStar?: (id: string) => void;
+  extraFunds?: Fund[];
 }
 
-export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar }: ViewLicitacionesProps) {
+export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [] }: ViewLicitacionesProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "COMPRA_AGIL" | "PUBLICO" | "CONVENIO_MARCO">("TODOS");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -32,8 +33,8 @@ export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, 
   };
 
   const licitaciones = useMemo(() => {
-    return ALL_FUNDS.filter(f => f.type === "licitacion");
-  }, []);
+    return [...ALL_FUNDS, ...extraFunds].filter(f => f.type === "licitacion");
+  }, [extraFunds]);
 
   const computeEligibility = (fund: Fund) => {
     const missingDocs: string[] = [];
