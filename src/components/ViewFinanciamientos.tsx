@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Search, SlidersHorizontal, ArrowUpDown, Calendar, HelpCircle, ExternalLink, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, XOctagon, Copy, Check, CalendarDays, Filter, Landmark, Flame } from "lucide-react";
+import { Search, SlidersHorizontal, ArrowUpDown, Calendar, HelpCircle, ExternalLink, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, XOctagon, Copy, Check, CalendarDays, Filter, Landmark, Flame, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { Fund, FundStatus, MiltonProfile, Entity } from "../types";
 import { ALL_FUNDS } from "../data";
 import { formatCLP, getGoogleCalendarUrl } from "../utils";
@@ -18,9 +18,12 @@ interface ViewFinanciamientosProps {
   starredFunds?: string[];
   onToggleStar?: (id: string) => void;
   extraFunds?: Fund[];
+  archivedFundIds?: string[];
+  onDeleteFund?: (id: string) => void;
+  onArchiveFund?: (id: string) => void;
 }
 
-export default function ViewFinanciamientos({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [] }: ViewFinanciamientosProps) {
+export default function ViewFinanciamientos({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund }: ViewFinanciamientosProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "URGENTES" | "MUJERES" | "SEMILLA" | "ID_INNOVACION">("TODOS");
   const [sortBy, setSortBy] = useState<"URGENCY" | "AMOUNT" | "CLOSE_DATE">("URGENCY");
@@ -434,6 +437,28 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
                           </a>
 
                           <CalendarButton item={fund} className="px-4 py-2 text-[10.5px]" />
+
+                          {fund.id.startsWith("custom-") && (
+                            <>
+                              <button
+                                onClick={() => onArchiveFund?.(fund.id)}
+                                className="ml-auto px-3 py-2 text-[10px] font-mono font-bold uppercase border border-ink/30 hover:border-ink text-ink/40 hover:text-ink flex items-center gap-1.5 transition-colors cursor-pointer"
+                                title={archivedFundIds.includes(fund.id) ? "Restaurar" : "Archivar (ocultar de esta vista)"}
+                              >
+                                {archivedFundIds.includes(fund.id)
+                                  ? <><ArchiveRestore className="h-3.5 w-3.5" /> Restaurar</>
+                                  : <><Archive className="h-3.5 w-3.5" /> Archivar</>
+                                }
+                              </button>
+                              <button
+                                onClick={() => onDeleteFund?.(fund.id)}
+                                className="px-3 py-2 text-[10px] font-mono font-bold uppercase border border-alert/40 bg-alert/5 hover:bg-alert hover:text-white text-alert flex items-center gap-1.5 transition-colors cursor-pointer"
+                                title="Eliminar definitivamente"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> Borrar
+                              </button>
+                            </>
+                          )}
                         </div>
 
                       </div>

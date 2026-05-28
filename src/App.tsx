@@ -170,12 +170,29 @@ export default function App() {
     } catch { return null; }
   });
 
+  const [archivedFundIds, setArchivedFundIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("milton_radar_archived_ids");
+      if (saved) return JSON.parse(saved) as string[];
+    } catch { /* noop */ }
+    return [];
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem("milton_radar_archived_ids", JSON.stringify(archivedFundIds)); } catch (_) {}
+  }, [archivedFundIds]);
+
   const handleImportFund = (fund: Fund) => {
     setCustomFunds(prev => [...prev, fund]);
   };
 
   const handleDeleteCustomFund = (id: string) => {
     setCustomFunds(prev => prev.filter(f => f.id !== id));
+    setArchivedFundIds(prev => prev.filter(aid => aid !== id));
+  };
+
+  const handleArchiveCustomFund = (id: string) => {
+    setArchivedFundIds(prev => prev.includes(id) ? prev.filter(aid => aid !== id) : [...prev, id]);
   };
 
   // Auto-navigate when extension injects data via URL param
@@ -217,8 +234,9 @@ export default function App() {
     );
   };
 
-  // State calculations — includes custom imported funds
-  const allFunds = [...ALL_FUNDS, ...customFunds];
+  // State calculations — includes custom imported funds (excluding archived)
+  const activeCustomFunds = customFunds.filter(f => !archivedFundIds.includes(f.id));
+  const allFunds = [...ALL_FUNDS, ...activeCustomFunds];
   const criticalCount = allFunds.filter(f => f.urgency === "CRITICAL").length;
   const countFinanciamientos = allFunds.filter(f => f.type === "financiamiento").length;
   const countLicitaciones = allFunds.filter(f => f.type === "licitacion").length;
@@ -427,7 +445,10 @@ export default function App() {
                   stackedFunds={stackedFunds}
                   starredFunds={starredFunds}
                   onToggleStar={toggleStar}
-                  extraFunds={customFunds}
+                  extraFunds={activeCustomFunds}
+                  archivedFundIds={archivedFundIds}
+                  onDeleteFund={handleDeleteCustomFund}
+                  onArchiveFund={handleArchiveCustomFund}
                 />
               )}
 
@@ -438,7 +459,10 @@ export default function App() {
                   stackedFunds={stackedFunds}
                   starredFunds={starredFunds}
                   onToggleStar={toggleStar}
-                  extraFunds={customFunds}
+                  extraFunds={activeCustomFunds}
+                  archivedFundIds={archivedFundIds}
+                  onDeleteFund={handleDeleteCustomFund}
+                  onArchiveFund={handleArchiveCustomFund}
                 />
               )}
 
@@ -449,7 +473,10 @@ export default function App() {
                   stackedFunds={stackedFunds}
                   starredFunds={starredFunds}
                   onToggleStar={toggleStar}
-                  extraFunds={customFunds}
+                  extraFunds={activeCustomFunds}
+                  archivedFundIds={archivedFundIds}
+                  onDeleteFund={handleDeleteCustomFund}
+                  onArchiveFund={handleArchiveCustomFund}
                 />
               )}
 
@@ -488,8 +515,10 @@ export default function App() {
               {activeTab === "importar" && (
                 <ViewImport
                   customFunds={customFunds}
+                  archivedFundIds={archivedFundIds}
                   onImportFund={handleImportFund}
                   onDeleteCustomFund={handleDeleteCustomFund}
+                  onArchiveCustomFund={handleArchiveCustomFund}
                   initialUrl={quickImportUrl}
                   onUrlConsumed={() => setQuickImportUrl("")}
                   initialDraft={extensionImportDraft}

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Search, Building2, ClipboardCopy, CheckCircle2, AlertTriangle, XOctagon, Calendar, ExternalLink, Copy, Check, CalendarDays, KeyRound, Radio } from "lucide-react";
+import { Search, Building2, ClipboardCopy, CheckCircle2, AlertTriangle, XOctagon, Calendar, ExternalLink, Copy, Check, CalendarDays, KeyRound, Radio, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { Fund, FundStatus, MiltonProfile } from "../types";
 import { ALL_FUNDS } from "../data";
 import { formatCLP, getGoogleCalendarUrl } from "../utils";
@@ -18,9 +18,12 @@ interface ViewLicitacionesProps {
   starredFunds?: string[];
   onToggleStar?: (id: string) => void;
   extraFunds?: Fund[];
+  archivedFundIds?: string[];
+  onDeleteFund?: (id: string) => void;
+  onArchiveFund?: (id: string) => void;
 }
 
-export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [] }: ViewLicitacionesProps) {
+export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund }: ViewLicitacionesProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "COMPRA_AGIL" | "PUBLICO" | "CONVENIO_MARCO">("TODOS");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -349,6 +352,28 @@ export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, 
                           </a>
 
                           <CalendarButton item={lic} className="px-4 py-2 text-[10.5px]" />
+
+                          {lic.id.startsWith("custom-") && (
+                            <>
+                              <button
+                                onClick={() => onArchiveFund?.(lic.id)}
+                                className="ml-auto px-3 py-2 text-[10px] font-mono font-bold uppercase border border-ink/30 hover:border-ink text-ink/40 hover:text-ink flex items-center gap-1.5 transition-colors cursor-pointer"
+                                title={archivedFundIds.includes(lic.id) ? "Restaurar" : "Archivar"}
+                              >
+                                {archivedFundIds.includes(lic.id)
+                                  ? <><ArchiveRestore className="h-3.5 w-3.5" /> Restaurar</>
+                                  : <><Archive className="h-3.5 w-3.5" /> Archivar</>
+                                }
+                              </button>
+                              <button
+                                onClick={() => onDeleteFund?.(lic.id)}
+                                className="px-3 py-2 text-[10px] font-mono font-bold uppercase border border-alert/40 bg-alert/5 hover:bg-alert hover:text-white text-alert flex items-center gap-1.5 transition-colors cursor-pointer"
+                                title="Eliminar definitivamente"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> Borrar
+                              </button>
+                            </>
+                          )}
                         </div>
 
                       </div>

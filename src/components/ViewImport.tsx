@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, Trash2, CheckCircle, AlertCircle, Plus, RefreshCcw, Package, Link } from "lucide-react";
+import { Sparkles, Trash2, CheckCircle, AlertCircle, Plus, RefreshCcw, Package, Link, Archive, ArchiveRestore, ChevronDown, ChevronUp } from "lucide-react";
 import OpenAI from "openai";
 import { Fund, FundStatus } from "../types";
 import { ALL_FUNDS } from "../data";
@@ -9,8 +9,10 @@ import { SECTION_COPY } from "../copy";
 
 interface ViewImportProps {
   customFunds: Fund[];
+  archivedFundIds?: string[];
   onImportFund: (fund: Fund) => void;
   onDeleteCustomFund: (id: string) => void;
+  onArchiveCustomFund?: (id: string) => void;
   initialUrl?: string;
   onUrlConsumed?: () => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -146,7 +148,7 @@ const PERPLEXITY_MODELS = [
   "perplexity/sonar-pro",
 ] as const;
 
-export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFund, initialUrl, onUrlConsumed, initialDraft, onDraftConsumed }: ViewImportProps) {
+export default function ViewImport({ customFunds, archivedFundIds = [], onImportFund, onDeleteCustomFund, onArchiveCustomFund, initialUrl, onUrlConsumed, initialDraft, onDraftConsumed }: ViewImportProps) {
   const [inputText, setInputText] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
@@ -160,6 +162,7 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<FundDraft | null>(null);
   const [success, setSuccess] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const client = OR_KEY
     ? new OpenAI({
@@ -827,47 +830,100 @@ Sé específico y cita datos exactos del documento. Si hay fechas, montos o porc
       </AnimatePresence>
 
       {/* Step 3: Imported list */}
-      {customFunds.length > 0 && (
-        <section className="border-2 border-ink bg-paper shadow-[4px_4px_0px_#1a1a1a] p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="bg-ink text-paper font-mono font-black text-xs px-2 py-0.5 select-none">✓</span>
-            <h2 className="font-display font-black text-base uppercase tracking-wide text-ink">
-              Convocatorias importadas ({customFunds.length})
-            </h2>
-          </div>
-          <div className="space-y-2">
-            {customFunds.map(fund => (
-              <div
-                key={fund.id}
-                className="flex items-start justify-between gap-4 border border-ink/25 bg-paper-dark p-4"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className={`px-2 py-0.5 text-[9px] font-mono font-bold border border-ink ${URGENCY_COLORS[fund.urgency]}`}>
-                      {fund.urgency}
-                    </span>
-                    <span className="text-[9px] font-mono text-ink/50 border border-ink/25 px-1.5 py-0.5 bg-paper">
-                      {TYPE_LABELS[fund.type ?? "financiamiento"]}
-                    </span>
-                    <span className="text-[9px] font-mono font-bold text-ink/30 uppercase tracking-wider">IMPORTADO</span>
-                  </div>
-                  <p className="font-display font-bold text-sm text-ink leading-tight">{fund.name}</p>
-                  <p className="text-[10px] font-mono text-ink/55 mt-0.5">
-                    {fund.entity} · {fund.amount} · cierre: {fund.deadline}
-                  </p>
-                </div>
-                <button
-                  onClick={() => onDeleteCustomFund(fund.id)}
-                  className="shrink-0 p-2 border border-ink/25 hover:border-alert hover:bg-alert/10 text-ink/35 hover:text-alert transition-colors cursor-pointer"
-                  title="Eliminar convocatoria importada"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+      {customFunds.length > 0 && (() => {
+        const activeFunds = customFunds.filter(f => !archivedFundIds.includes(f.id));
+        const archivedFunds = customFunds.filter(f => archivedFundIds.includes(f.id));
+
+        const renderFundRow = (fund: Fund, isArchived: boolean) => (
+          <div
+            key={fund.id}
+            className={`flex items-start justify-between gap-4 border p-4 ${isArchived ? "border-ink/15 bg-paper opacity-60" : "border-ink/25 bg-paper-dark"}`}
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <span className={`px-2 py-0.5 text-[9px] font-mono font-bold border border-ink ${URGENCY_COLORS[fund.urgency]}`}>
+                  {fund.urgency}
+                </span>
+                <span className="text-[9px] font-mono text-ink/50 border border-ink/25 px-1.5 py-0.5 bg-paper">
+                  {TYPE_LABELS[fund.type ?? "financiamiento"]}
+                </span>
+                {isArchived
+                  ? <span className="text-[9px] font-mono font-bold text-ink/30 uppercase tracking-wider">ARCHIVADO</span>
+                  : <span className="text-[9px] font-mono font-bold text-ink/30 uppercase tracking-wider">IMPORTADO</span>
+                }
               </div>
-            ))}
+              <p className="font-display font-bold text-sm text-ink leading-tight">{fund.name}</p>
+              <p className="text-[10px] font-mono text-ink/55 mt-0.5">
+                {fund.entity} · {fund.amount} · cierre: {fund.deadline}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {onArchiveCustomFund && (
+                <button
+                  onClick={() => onArchiveCustomFund(fund.id)}
+                  className="flex items-center gap-1 px-2.5 py-2 border border-ink/30 hover:border-ink hover:bg-paper-dark text-ink/40 hover:text-ink font-mono text-[10px] font-bold uppercase transition-colors cursor-pointer"
+                  title={isArchived ? "Restaurar" : "Archivar (ocultar de las vistas)"}
+                >
+                  {isArchived
+                    ? <><ArchiveRestore className="h-3 w-3" /> Restaurar</>
+                    : <><Archive className="h-3 w-3" /> Archivar</>
+                  }
+                </button>
+              )}
+              <button
+                onClick={() => onDeleteCustomFund(fund.id)}
+                className="flex items-center gap-1 px-2.5 py-2 border border-alert/40 bg-alert/5 hover:bg-alert hover:text-white text-alert font-mono text-[10px] font-bold uppercase transition-colors cursor-pointer"
+                title="Eliminar definitivamente"
+              >
+                <Trash2 className="h-3 w-3" /> Borrar
+              </button>
+            </div>
           </div>
-        </section>
-      )}
+        );
+
+        return (
+          <section className="border-2 border-ink bg-paper shadow-[4px_4px_0px_#1a1a1a] p-6 space-y-4">
+            {/* Active */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="bg-ink text-paper font-mono font-black text-xs px-2 py-0.5 select-none">✓</span>
+              <h2 className="font-display font-black text-base uppercase tracking-wide text-ink">
+                Convocatorias importadas ({activeFunds.length})
+              </h2>
+              <button
+                onClick={() => { if (confirm(`¿Borrar las ${customFunds.length} convocatorias importadas?`)) customFunds.forEach(f => onDeleteCustomFund(f.id)); }}
+                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 border border-alert/50 text-alert hover:bg-alert hover:text-white font-mono text-[10px] font-bold uppercase transition-colors cursor-pointer"
+              >
+                <Trash2 className="h-3 w-3" /> Borrar todo
+              </button>
+            </div>
+            <div className="space-y-2">
+              {activeFunds.length === 0 && (
+                <p className="text-[10px] font-mono text-ink/35 py-2">Todas están archivadas. Usa "Restaurar" para reactivarlas.</p>
+              )}
+              {activeFunds.map(f => renderFundRow(f, false))}
+            </div>
+
+            {/* Archived collapsible */}
+            {archivedFunds.length > 0 && (
+              <div className="border-t border-ink/20 pt-4 space-y-2">
+                <button
+                  onClick={() => setShowArchived(s => !s)}
+                  className="flex items-center gap-2 text-[10px] font-mono font-bold uppercase text-ink/50 hover:text-ink transition-colors cursor-pointer"
+                >
+                  {showArchived ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  <Archive className="h-3.5 w-3.5" />
+                  Archivadas ({archivedFunds.length}) — ocultas de las vistas principales
+                </button>
+                {showArchived && (
+                  <div className="space-y-2">
+                    {archivedFunds.map(f => renderFundRow(f, true))}
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        );
+      })()}
 
       {customFunds.length === 0 && !draft && !loading && (
         <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-ink/20 text-ink/35">

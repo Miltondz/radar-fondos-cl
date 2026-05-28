@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Search, Trophy, Gift, CheckCircle2, AlertTriangle, KeyRound, ExternalLink, Copy, Check, CalendarDays, Zap, ZapOff } from "lucide-react";
+import { Search, Trophy, Gift, CheckCircle2, AlertTriangle, KeyRound, ExternalLink, Copy, Check, CalendarDays, Zap, ZapOff, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { Fund, FundStatus, MiltonProfile } from "../types";
 import { ALL_FUNDS } from "../data";
 import { formatCLP, getGoogleCalendarUrl } from "../utils";
@@ -18,9 +18,12 @@ interface ViewHackatonesProps {
   starredFunds?: string[];
   onToggleStar?: (id: string) => void;
   extraFunds?: Fund[];
+  archivedFundIds?: string[];
+  onDeleteFund?: (id: string) => void;
+  onArchiveFund?: (id: string) => void;
 }
 
-export default function ViewHackatones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [] }: ViewHackatonesProps) {
+export default function ViewHackatones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund }: ViewHackatonesProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "PREMIO_EFECTIVO" | "TECNOLOGICO">("TODOS");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -340,6 +343,28 @@ export default function ViewHackatones({ profile, onAddToStack, stackedFunds, st
                           </a>
 
                           <CalendarButton item={hack} className="px-4 py-2 text-[10.5px]" />
+
+                          {hack.id.startsWith("custom-") && (
+                            <>
+                              <button
+                                onClick={() => onArchiveFund?.(hack.id)}
+                                className="ml-auto px-3 py-2 text-[10px] font-mono font-bold uppercase border border-ink/30 hover:border-ink text-ink/40 hover:text-ink flex items-center gap-1.5 transition-colors cursor-pointer"
+                                title={archivedFundIds.includes(hack.id) ? "Restaurar" : "Archivar"}
+                              >
+                                {archivedFundIds.includes(hack.id)
+                                  ? <><ArchiveRestore className="h-3.5 w-3.5" /> Restaurar</>
+                                  : <><Archive className="h-3.5 w-3.5" /> Archivar</>
+                                }
+                              </button>
+                              <button
+                                onClick={() => onDeleteFund?.(hack.id)}
+                                className="px-3 py-2 text-[10px] font-mono font-bold uppercase border border-alert/40 bg-alert/5 hover:bg-alert hover:text-white text-alert flex items-center gap-1.5 transition-colors cursor-pointer"
+                                title="Eliminar definitivamente"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> Borrar
+                              </button>
+                            </>
+                          )}
                         </div>
 
                       </div>
