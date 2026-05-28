@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, Trash2, CheckCircle, AlertCircle, Plus, RefreshCcw, Package, Link } from "lucide-react";
 import OpenAI from "openai";
@@ -11,6 +11,8 @@ interface ViewImportProps {
   customFunds: Fund[];
   onImportFund: (fund: Fund) => void;
   onDeleteCustomFund: (id: string) => void;
+  initialUrl?: string;
+  onUrlConsumed?: () => void;
 }
 
 const OR_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined;
@@ -113,7 +115,7 @@ const TYPE_LABELS: Record<string, string> = {
   hackaton: "⚡ Hackaton",
 };
 
-export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFund }: ViewImportProps) {
+export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFund, initialUrl, onUrlConsumed }: ViewImportProps) {
   const [inputText, setInputText] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
@@ -139,12 +141,13 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
     [draft, customFunds]
   );
 
-  const handleFetchUrl = async () => {
-    if (!urlInput.trim()) return;
+  const handleFetchUrl = useCallback(async (urlOverride?: string) => {
+    const targetUrl = (urlOverride ?? urlInput).trim();
+    if (!targetUrl) return;
     setUrlLoading(true);
     setError(null);
     try {
-      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(urlInput.trim())}`);
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as { contents?: string };
       if (!data.contents) throw new Error("Sin contenido en la respuesta del proxy.");
@@ -159,12 +162,21 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
         const combined = prev ? `${prev}\n\n---\n\n${text}` : text;
         return combined.slice(0, 6000);
       });
-      setUrlInput("");
+      if (!urlOverride) setUrlInput("");
+      onUrlConsumed?.();
     } catch (e) {
       setError(`No se pudo cargar la URL: ${(e as Error).message}. Copia el texto de la página manualmente.`);
     }
     setUrlLoading(false);
-  };
+  }, [urlInput, onUrlConsumed]);
+
+  useEffect(() => {
+    if (initialUrl) {
+      setUrlInput(initialUrl);
+      handleFetchUrl(initialUrl);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialUrl]);
 
   const handleAnalyze = async () => {
     if (!inputText.trim() || !client) return;
@@ -287,10 +299,10 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
               value={urlInput}
               onChange={e => setUrlInput(e.target.value)}
               disabled={urlLoading || loading}
-              onKeyDown={e => { if (e.key === "Enter") handleFetchUrl(); }}
+              onKeyDown={e => { if (e.key === "Enter") handleFetchUrl(urlInput); }}
             />
             <button
-              onClick={handleFetchUrl}
+              onClick={() => handleFetchUrl(urlInput)}
               disabled={!urlInput.trim() || urlLoading || loading}
               className="flex items-center gap-1.5 bg-paper border-2 border-ink px-4 py-2 font-mono font-black text-xs uppercase tracking-wide hover:bg-paper-dark active:translate-y-[1px] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer select-none whitespace-nowrap shadow-[2px_2px_0px_rgba(0,0,0,0.3)]"
             >
@@ -298,6 +310,7 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
                 ? <><RefreshCcw className="h-3.5 w-3.5 animate-spin" /> Cargando…</>
                 : <><Link className="h-3.5 w-3.5" /> Cargar URL</>
               }
+
             </button>
           </div>
           <p className="text-[10px] font-mono text-ink/40">

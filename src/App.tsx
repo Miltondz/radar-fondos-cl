@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Building2, Calendar, ClipboardCheck, Sparkles, Layers, ListTodo,
-  MapPin, HelpCircle, Star, Info, Moon, Sun, BookOpen, Flame, Bell, User
+  MapPin, HelpCircle, Star, Info, Moon, Sun, BookOpen, Flame, Bell, User, Link
 } from "lucide-react";
 import { MiltonProfile, Fund } from "./types";
 import { ALL_FUNDS } from "./data";
@@ -154,12 +154,23 @@ export default function App() {
     try { localStorage.setItem("milton_radar_custom_funds", JSON.stringify(customFunds)); } catch (_) {}
   }, [customFunds]);
 
+  const [quickImportUrl, setQuickImportUrl] = useState("");
+  const [quickImportBarInput, setQuickImportBarInput] = useState("");
+
   const handleImportFund = (fund: Fund) => {
     setCustomFunds(prev => [...prev, fund]);
   };
 
   const handleDeleteCustomFund = (id: string) => {
     setCustomFunds(prev => prev.filter(f => f.id !== id));
+  };
+
+  const handleQuickImportSubmit = () => {
+    const url = quickImportBarInput.trim();
+    if (!url) return;
+    setQuickImportUrl(url);
+    setQuickImportBarInput("");
+    setActiveTab("importar");
   };
 
   // 3. Helper Interactions
@@ -340,8 +351,34 @@ export default function App() {
           </button>
         </div>
 
+        {/* Persistent Quick Import URL Bar */}
+        <div className="flex items-center gap-0 border-2 border-t-0 border-ink bg-paper-dark shadow-[4px_2px_0px_#1a1a1a]">
+          <div className="flex items-center gap-1.5 shrink-0 px-3 py-2.5 border-r border-ink/25 bg-ink/5">
+            <Link className="h-3 w-3 text-ink/60" />
+            <span className="font-mono font-black text-[9.5px] uppercase tracking-widest text-ink/70 select-none whitespace-nowrap">
+              Añadir URL
+            </span>
+          </div>
+          <input
+            type="url"
+            className="flex-1 min-w-0 bg-transparent font-mono text-xs text-ink px-3 py-2.5 focus:outline-none placeholder:text-ink/30"
+            placeholder="Pega URL de CORFO, Mercado Público, SERCOTEC, LinkedIn… y presiona Enter"
+            value={quickImportBarInput}
+            onChange={e => setQuickImportBarInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleQuickImportSubmit(); }}
+          />
+          <button
+            onClick={handleQuickImportSubmit}
+            disabled={!quickImportBarInput.trim()}
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 font-mono font-black text-[10px] uppercase tracking-wide bg-ink text-paper hover:bg-ink/85 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer select-none border-l border-ink/25"
+          >
+            <Sparkles className="h-3 w-3" />
+            Analizar
+          </button>
+        </div>
+
         {/* Reactive Tab Component Router Frame */}
-        <div className="mt-2 min-h-[500px]" id="radar-subpage-mount-element">
+        <div className="mt-0 min-h-[500px]" id="radar-subpage-mount-element">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -435,6 +472,8 @@ export default function App() {
                   customFunds={customFunds}
                   onImportFund={handleImportFund}
                   onDeleteCustomFund={handleDeleteCustomFund}
+                  initialUrl={quickImportUrl}
+                  onUrlConsumed={() => setQuickImportUrl("")}
                 />
               )}
             </motion.div>
