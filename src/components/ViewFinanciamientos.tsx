@@ -4,17 +4,22 @@ import { Search, SlidersHorizontal, ArrowUpDown, Calendar, HelpCircle, ExternalL
 import { Fund, FundStatus, MiltonProfile, Entity } from "../types";
 import { ALL_FUNDS } from "../data";
 import { formatCLP, getGoogleCalendarUrl } from "../utils";
+import { SECTION_COPY } from "../copy";
 import CalendarButton from "./CalendarButton";
 import EligibilityChecklist from "./EligibilityChecklist";
 import MapWidget from "./MapWidget";
+import SectionHeader from "./SectionHeader";
+import NextActionBanner from "./NextActionBanner";
 
 interface ViewFinanciamientosProps {
   profile: MiltonProfile;
   onAddToStack: (fund: Fund) => void;
   stackedFunds: Fund[];
+  starredFunds?: string[];
+  onToggleStar?: (id: string) => void;
 }
 
-export default function ViewFinanciamientos({ profile, onAddToStack, stackedFunds }: ViewFinanciamientosProps) {
+export default function ViewFinanciamientos({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar }: ViewFinanciamientosProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "URGENTES" | "MUJERES" | "SEMILLA" | "ID_INNOVACION">("TODOS");
   const [sortBy, setSortBy] = useState<"URGENCY" | "AMOUNT" | "CLOSE_DATE">("URGENCY");
@@ -155,7 +160,9 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
 
   return (
     <div id="subsidios-financiamientos-tab" className="space-y-6">
-      
+      <SectionHeader copy={SECTION_COPY.financiamientos} />
+      <NextActionBanner section="financiamientos" funds={ALL_FUNDS} starredIds={starredFunds} profile={profile} />
+
       {/* Search and Filters Controls */}
       <div className="bg-paper border-2 border-ink p-5 shadow-[3px_3px_0px_rgba(0,0,0,1)] flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         

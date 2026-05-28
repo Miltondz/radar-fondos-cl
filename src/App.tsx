@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { 
-  Building2, Calendar, ClipboardCheck, Sparkles, Layers, ListTodo, 
-  MapPin, HelpCircle, RefreshCw, Star, Info, Moon, Sun, BookOpen, Flame, Bell
+import {
+  Building2, Calendar, ClipboardCheck, Sparkles, Layers, ListTodo,
+  MapPin, HelpCircle, Star, Info, Moon, Sun, BookOpen, Flame, Bell, User
 } from "lucide-react";
 import { MiltonProfile, Fund } from "./types";
 import { ALL_FUNDS } from "./data";
@@ -17,6 +17,7 @@ import FloatingAI from "./components/FloatingAI";
 import PlanDeAccion from "./components/PlanDeAccion";
 import Resources from "./components/Resources";
 import SettingsPanel from "./components/SettingsPanel";
+import OnboardingWizard from "./components/OnboardingWizard";
 
 export default function App() {
   // 1. Theme State & Storage
@@ -43,16 +44,45 @@ export default function App() {
   const [profile, setProfile] = useState<MiltonProfile>(() => {
     try {
       const saved = localStorage.getItem("milton_radar_profile");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          hasWoman: parsed.hasWoman ?? false,
+          hasSpA: parsed.hasSpA ?? false,
+          hasSales: parsed.hasSales ?? false,
+          hasSiiInitiated: parsed.hasSiiInitiated ?? false,
+          companyName: parsed.companyName ?? "",
+          stage: parsed.stage ?? "idea",
+          sector: parsed.sector ?? "saas",
+          region: parsed.region ?? "Región Metropolitana",
+          foundedYear: parsed.foundedYear,
+        };
+      }
     } catch (e) {
       console.warn("Could not read profile from localStorage", e);
     }
     return {
-      hasWoman: false,
-      hasSpA: false,
-      hasSales: false,
-      hasSiiInitiated: false
+      hasWoman: false, hasSpA: false, hasSales: false, hasSiiInitiated: false,
+      companyName: "", stage: "idea", sector: "saas", region: "Región Metropolitana",
     };
+  });
+
+  const [starredFunds, setStarredFunds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("milton_radar_starred");
+      if (saved) return JSON.parse(saved) as string[];
+    } catch (e) { console.warn("Could not read starred funds", e); }
+    return [];
+  });
+
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => {
+    try { return localStorage.getItem("milton_radar_onboarding_done") === "true"; }
+    catch (e) { return false; }
+  });
+
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
+    try { return localStorage.getItem("milton_radar_onboarding_done") !== "true"; }
+    catch (e) { return true; }
   });
 
   const [stackedFunds, setStackedFunds] = useState<Fund[]>(() => {
@@ -88,6 +118,20 @@ export default function App() {
   }, [profile]);
 
   useEffect(() => {
+    try { localStorage.setItem("milton_radar_starred", JSON.stringify(starredFunds)); } catch (_) {}
+  }, [starredFunds]);
+
+  useEffect(() => {
+    try { localStorage.setItem("milton_radar_onboarding_done", String(onboardingCompleted)); } catch (_) {}
+  }, [onboardingCompleted]);
+
+  const toggleStar = (fundId: string) => {
+    setStarredFunds(prev =>
+      prev.includes(fundId) ? prev.filter(id => id !== fundId) : [...prev, fundId]
+    );
+  };
+
+  useEffect(() => {
     try { localStorage.setItem("milton_radar_stacked", JSON.stringify(stackedFunds.map(f => f.id))); } catch (_) {}
   }, [stackedFunds]);
 
@@ -119,23 +163,6 @@ export default function App() {
     setCompletedSteps(prev => 
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
-  };
-
-  const handleResetWorkspace = () => {
-    if (confirm("¿Estás seguro de que deseas restablecer el simulador a su configuración inicial?")) {
-      setProfile({
-        hasWoman: false,
-        hasSpA: false,
-        hasSales: false,
-        hasSiiInitiated: false
-      });
-      setStackedFunds([
-        ALL_FUNDS.find(f => f.id === "corfo-semilla-inicia-rm-2026") || ALL_FUNDS[1],
-        ALL_FUNDS.find(f => f.id === "sercotec-abeja-2026") || ALL_FUNDS[0]
-      ].filter(Boolean));
-      setCompletedSteps([]);
-      setActiveTab("landing");
-    }
   };
 
   // State calculations
@@ -172,6 +199,17 @@ export default function App() {
             </span>
           </div>
 
+          <div className="flex items-center gap-2">
+          {/* Mi Empresa button */}
+          <button
+            onClick={() => setShowOnboarding(true)}
+            className="flex items-center gap-2 px-3 py-1.5 border border-ink bg-paper hover:bg-paper-dark font-mono text-[10px] font-black uppercase transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-y-[1px] select-none cursor-pointer"
+            title="Configurar perfil de empresa"
+          >
+            <User className="h-3 w-3" />
+            {profile.companyName ? profile.companyName : "Mi Empresa"}
+          </button>
+
           {/* Toggle Theme Control */}
           <button
             onClick={() => setTheme(prev => prev === "light" ? "dark" : "light")}
@@ -191,10 +229,11 @@ export default function App() {
               </>
             )}
           </button>
+          </div>
         </div>
 
         {/* 4-Pillar Subpages Navigation Track */}
-        <div className="flex border-2 border-ink bg-paper p-1 shadow-[4px_4px_0px_#1a1a1a] flex-wrap md:flex-nowrap" id="radar-hub-toptabs">
+        <div className="flex border-2 border-ink bg-paper shadow-[4px_4px_0px_#1a1a1a] overflow-x-auto" id="radar-hub-toptabs" style={{ scrollbarWidth: "none" }}>
           <button 
             onClick={() => setActiveTab("landing")}
             className={`flex-1 min-w-[120px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
@@ -283,10 +322,13 @@ export default function App() {
                   profile={profile}
                   onProfileChange={setProfile}
                   stackedFunds={stackedFunds}
+                  starredFunds={starredFunds}
                   onAddToStack={handleAddToStack}
                   onRemoveFromStack={handleRemoveFromStack}
                   onClearStack={handleClearStack}
                   onApplyPreset={handleApplyPresetStack}
+                  onToggleStar={toggleStar}
+                  onNavigateTo={(tab) => setActiveTab(tab as typeof activeTab)}
                 />
               )}
 
@@ -295,6 +337,8 @@ export default function App() {
                   profile={profile}
                   onAddToStack={handleAddToStack}
                   stackedFunds={stackedFunds}
+                  starredFunds={starredFunds}
+                  onToggleStar={toggleStar}
                 />
               )}
 
@@ -303,6 +347,8 @@ export default function App() {
                   profile={profile}
                   onAddToStack={handleAddToStack}
                   stackedFunds={stackedFunds}
+                  starredFunds={starredFunds}
+                  onToggleStar={toggleStar}
                 />
               )}
 
@@ -311,6 +357,8 @@ export default function App() {
                   profile={profile}
                   onAddToStack={handleAddToStack}
                   stackedFunds={stackedFunds}
+                  starredFunds={starredFunds}
+                  onToggleStar={toggleStar}
                 />
               )}
 
@@ -349,26 +397,31 @@ export default function App() {
           </AnimatePresence>
         </div>
 
-        {/* Workspace Reset controls */}
-        <div className="flex flex-col sm:flex-row justify-between items-center py-4 border-t-2 border-ink mt-8 text-ink/75 font-mono text-[9.5px] gap-4">
-          <div>
-            <span>Radar Fondos CL • v4.1.0 (Santiago, Chile | {new Date().getFullYear()})</span>
-          </div>
-          <button
-            onClick={handleResetWorkspace}
-            className="flex items-center gap-1.5 hover:text-alert font-bold uppercase transition-all cursor-pointer bg-paper bg-opacity-100 px-3 py-1.5 border border-ink shadow-[2px_2px_0px_rgba(0,0,0,1)] shrink-0 active:translate-y-[1px]"
-            id="reset-workspace-button"
-            title="Sincronizar y resetear workspace"
-          >
-            <RefreshCw className="h-3 w-3" />
-            Reiniciar Simulador
-          </button>
+        {/* Footer bar */}
+        <div className="flex items-center justify-center py-4 border-t-2 border-ink mt-8 text-ink/75 font-mono text-[9.5px]">
+          <span>Radar Fondos CL • v4.1.0 (Santiago, Chile | {new Date().getFullYear()})</span>
         </div>
 
       </main>
 
       {/* Floating AI — visible in all views */}
       <FloatingAI profile={profile} stackedFunds={stackedFunds} currentView={activeTab} />
+
+      {/* Onboarding Wizard */}
+      {showOnboarding && (
+        <OnboardingWizard
+          profile={profile}
+          onSave={(updated) => {
+            setProfile(updated);
+            setOnboardingCompleted(true);
+            setShowOnboarding(false);
+          }}
+          onDismiss={() => {
+            setOnboardingCompleted(true);
+            setShowOnboarding(false);
+          }}
+        />
+      )}
 
       {/* Main Footer Block */}
       <footer className="w-full bg-paper-dark border-t-2 border-ink py-10 text-center" id="radar-footer">

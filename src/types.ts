@@ -52,16 +52,36 @@ export interface Fund {
   address?: string; // Dirección física del organismo o sede del evento
 }
 
+export type StartupStage = "idea" | "pre-seed" | "seed" | "series-a" | "growth";
+export type StartupSector = "saas" | "fintech" | "healthtech" | "edtech" | "ecommerce" | "ai" | "iot" | "otro";
+
+export const REGIONS_CL = [
+  "Región Metropolitana", "Valparaíso", "Biobío", "La Araucanía",
+  "Los Lagos", "Maule", "O'Higgins", "Coquimbo", "Antofagasta",
+  "Los Ríos", "Atacama", "Arica y Parinacota", "Tarapacá",
+  "Ñuble", "Aysén", "Magallanes"
+] as const;
+
 export interface MiltonProfile {
+  // Elegibilidad (existentes)
   hasWoman: boolean;
   hasSpA: boolean;
   hasSales: boolean;
   hasSiiInitiated: boolean;
+  // Empresa (nuevos)
+  companyName: string;
+  stage: StartupStage;
+  sector: StartupSector;
+  region: string;
+  foundedYear?: number;
 }
+
+export type RoadmapPhase = "setup-legal" | "documentacion" | "postulacion" | "seguimiento";
 
 export interface RoadmapStep {
   id: string;
   timeframe: "ESTA_SEMANA" | "JUNIO_2026" | "JULIO_AGOSTO_2026" | "NOVIEMBRE_2026";
+  phase: RoadmapPhase;
   dateText: string;
   title: string;
   desc: string;

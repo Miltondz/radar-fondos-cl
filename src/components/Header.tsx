@@ -68,15 +68,15 @@ export default function Header({ currentDate, criticalCount, urgentFunds = [] }:
 
           {/* Editorial Architectural Radar Drafting Screen */}
           <div className="flex justify-center md:justify-end">
-            <div className="relative h-56 w-56 sm:h-64 sm:w-64 border-2 border-ink bg-white flex items-center justify-center overflow-hidden shadow-[4px_4px_0px_#1a1a1a]">
+            <div className="relative h-56 w-56 sm:h-64 sm:w-64 border-2 border-ink bg-white dark:bg-paper flex items-center justify-center overflow-hidden shadow-[4px_4px_0px_#1a1a1a]">
               {/* Target concentric drawing lines */}
-              <div className="absolute h-[80%] w-[80%] rounded-full border border-ink/10 pointer-events-none" />
-              <div className="absolute h-[55%] w-[55%] rounded-full border border-ink/15 pointer-events-none" />
-              <div className="absolute h-[30%] w-[30%] rounded-full border border-ink/20 pointer-events-none" />
-              
+              <div className="absolute h-[80%] w-[80%] rounded-full border border-ink/20 dark:border-ink/40 pointer-events-none" />
+              <div className="absolute h-[55%] w-[55%] rounded-full border border-ink/25 dark:border-ink/50 pointer-events-none" />
+              <div className="absolute h-[30%] w-[30%] rounded-full border border-ink/30 dark:border-ink/60 pointer-events-none" />
+
               {/* Horizontal and vertical crosshairs like a blueprint */}
-              <div className="absolute h-full w-[1px] bg-ink/15 pointer-events-none" />
-              <div className="absolute w-full h-[1px] bg-ink/15 pointer-events-none" />
+              <div className="absolute h-full w-[1px] bg-ink/20 dark:bg-ink/50 pointer-events-none" />
+              <div className="absolute w-full h-[1px] bg-ink/20 dark:bg-ink/50 pointer-events-none" />
 
               {/* Central Target Pin */}
               <div className="absolute h-4 w-4 bg-ink border border-white flex items-center justify-center z-10">

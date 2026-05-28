@@ -18,6 +18,7 @@ export const ROADMAP_STEPS: RoadmapStep[] = [
   {
     id: "step-1",
     timeframe: "ESTA_SEMANA",
+    phase: "postulacion",
     dateText: "HOY - 27 de Mayo 2026",
     title: "Postulación Express Capital Abeja",
     desc: "Si hay mujer empresaria/socia en tu equipo, presentarse HOY mismo en Sercotec.cl para realizar la postulación en línea. Cierra de forma inminente.",
@@ -27,6 +28,7 @@ export const ROADMAP_STEPS: RoadmapStep[] = [
   {
     id: "step-2",
     timeframe: "ESTA_SEMANA",
+    phase: "postulacion",
     dateText: "27-28 de Mayo 2026",
     title: "Redacción del Pitch y Formulario",
     desc: "Ingresar a Corfo.cl y activar el borrador de postulación del 'Semilla Inicia Región Metropolitana'. Detallar el problema de mercado, la solución TI, y el componente de alto potencial.",
@@ -36,6 +38,7 @@ export const ROADMAP_STEPS: RoadmapStep[] = [
   {
     id: "step-3",
     timeframe: "ESTA_SEMANA",
+    phase: "postulacion",
     dateText: "29 de Mayo 2026 (17:00 Hrs)",
     title: "Envío CORFO Semilla Inicia RM",
     desc: "Revisión definitiva y firma digital del borrador. Enviar obligatoriamente antes de la hora límite para evitar saturación de servidores gubernamentales.",
@@ -45,6 +48,7 @@ export const ROADMAP_STEPS: RoadmapStep[] = [
   {
     id: "step-4",
     timeframe: "JUNIO_2026",
+    phase: "postulacion",
     dateText: "1 al 9 de Junio 2026",
     title: "Enviar Perfil Crea y Valida (I+D)",
     desc: "Redacción del formulario sintético de perfil para proyecto tecnológico aplicado con componente innovador de software.",
@@ -54,6 +58,7 @@ export const ROADMAP_STEPS: RoadmapStep[] = [
   {
     id: "step-5",
     timeframe: "JUNIO_2026",
+    phase: "setup-legal",
     dateText: "10 de Junio 2026",
     title: "Constitución Express de SpA",
     desc: "Formalizar la startup mediante el portal estatal Tu Empresa En Un Día (registros.cl) de forma 100% o costo marginal, asignando capital inicial desde $1 CLP.",
@@ -63,6 +68,7 @@ export const ROADMAP_STEPS: RoadmapStep[] = [
   {
     id: "step-6",
     timeframe: "JUNIO_2026",
+    phase: "setup-legal",
     dateText: "15 de Junio 2026",
     title: "Padrón del Estado & Proveedores",
     desc: "Asociar la SpA en ChileProveedores y activar visibilidad en Mercado Público para disputar licitaciones del rubro de consultoría digital o desarrollo de software.",
@@ -72,6 +78,7 @@ export const ROADMAP_STEPS: RoadmapStep[] = [
   {
     id: "step-7",
     timeframe: "JULIO_AGOSTO_2026",
+    phase: "postulacion",
     dateText: "1 de Julio 2026",
     title: "Postulación Súmate a Innovar Sostenible",
     desc: "Si el modelo de negocio cuenta con un ángulo de monitoreo energético u optimización ambiental de software, postular al fondo de fomento ecológico de CORFO.",
@@ -81,6 +88,7 @@ export const ROADMAP_STEPS: RoadmapStep[] = [
   {
     id: "step-8",
     timeframe: "JULIO_AGOSTO_2026",
+    phase: "seguimiento",
     dateText: "Julio 2026",
     title: "Primera Licitación Compra Ágil",
     desc: "Monitorear en Mercado Público compras ágiles menores a 100 UTM para adjudicar los primeros contratos estatales como consultor SpA de informática.",
@@ -90,6 +98,7 @@ export const ROADMAP_STEPS: RoadmapStep[] = [
   {
     id: "step-9",
     timeframe: "JULIO_AGOSTO_2026",
+    phase: "seguimiento",
     dateText: "1 Jul - 5 Ago 2026",
     title: "AcademIA HackLab 2026",
     desc: "Participar de la convocatoria de Ciudad Emergente y Google para acelerar el uso de Inteligencia Artificial aplicada en sistemas urbanos y ecológicos.",
@@ -99,6 +108,7 @@ export const ROADMAP_STEPS: RoadmapStep[] = [
   {
     id: "step-10",
     timeframe: "NOVIEMBRE_2026",
+    phase: "seguimiento",
     dateText: "Noviembre 2026",
     title: "Postulación Startup Chile BIG 12",
     desc: "Postular a la segunda gran ronda internacional en categorías Build ($15M CLP) para ideas o Ignite ($30M CLP) con el producto SaaS en validación inicial.",

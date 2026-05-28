@@ -4,17 +4,22 @@ import { Search, Building2, ClipboardCopy, CheckCircle2, AlertTriangle, XOctagon
 import { Fund, FundStatus, MiltonProfile } from "../types";
 import { ALL_FUNDS } from "../data";
 import { formatCLP, getGoogleCalendarUrl } from "../utils";
+import { SECTION_COPY } from "../copy";
 import CalendarButton from "./CalendarButton";
 import EligibilityChecklist from "./EligibilityChecklist";
 import MapWidget from "./MapWidget";
+import SectionHeader from "./SectionHeader";
+import NextActionBanner from "./NextActionBanner";
 
 interface ViewLicitacionesProps {
   profile: MiltonProfile;
   onAddToStack: (fund: Fund) => void;
   stackedFunds: Fund[];
+  starredFunds?: string[];
+  onToggleStar?: (id: string) => void;
 }
 
-export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds }: ViewLicitacionesProps) {
+export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar }: ViewLicitacionesProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "COMPRA_AGIL" | "PUBLICO" | "CONVENIO_MARCO">("TODOS");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -86,7 +91,9 @@ export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds }
 
   return (
     <div id="licitaciones-compras-tab" className="space-y-6">
-      
+      <SectionHeader copy={SECTION_COPY.licitaciones} />
+      <NextActionBanner section="licitaciones" funds={ALL_FUNDS} starredIds={starredFunds} profile={profile} />
+
       {/* Search and Filters panel */}
       <div className="bg-paper border-2 border-ink p-5 shadow-[3px_3px_0px_rgba(0,0,0,1)] flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         

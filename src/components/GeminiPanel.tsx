@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { Send, Sparkles, AlertCircle, Bot, Trash2 } from "lucide-react";
+import { Send, Sparkles, AlertCircle, Bot, Trash2, Info } from "lucide-react";
+import { SECTION_COPY } from "../copy";
 import OpenAI from "openai";
 import { Fund, MiltonProfile } from "../types";
 import { ALL_FUNDS } from "../data";
@@ -31,7 +32,9 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const iaCopy = SECTION_COPY.ia;
 
   const client = OR_KEY
     ? new OpenAI({
@@ -144,6 +147,13 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
           <span className="text-[9px] font-mono font-bold text-safe border border-safe px-2 py-1 uppercase">
             ● Activo
           </span>
+          <button
+            onClick={() => setShowHelp(s => !s)}
+            className="p-1.5 border border-ink/30 text-ink/40 hover:text-ink cursor-pointer transition-colors"
+            title="Cómo usar el Asesor IA"
+          >
+            <Info className="h-3.5 w-3.5" />
+          </button>
           {messages.length > 0 && (
             <button
               onClick={() => { setMessages([]); setError(null); }}
@@ -155,6 +165,27 @@ export default function GeminiPanel({ profile, stackedFunds, currentView, isComp
           )}
         </div>
       </div>
+
+      {/* Help/explanation panel */}
+      {showHelp && (
+        <div className="border-b border-ink/20 px-5 py-4 bg-paper-dark/30 space-y-3">
+          <p className="text-xs font-serif text-ink/75 leading-relaxed">{iaCopy.description}</p>
+          <div>
+            <p className="text-[9px] font-mono font-bold uppercase tracking-wider text-ink/50 mb-2">Ejemplos de preguntas</p>
+            <div className="flex flex-wrap gap-1.5">
+              {iaCopy.helpItems?.map((item, i) => (
+                <button
+                  key={i}
+                  onClick={() => { setInput(item); setShowHelp(false); }}
+                  className="text-[10px] font-serif text-ink/70 bg-paper border border-ink/30 px-2 py-1 hover:border-accent-purple hover:text-accent-purple transition-colors cursor-pointer text-left leading-snug"
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Preset prompt buttons */}
       <div className="border-b border-ink/20 p-4 grid grid-cols-2 md:grid-cols-4 gap-2">
