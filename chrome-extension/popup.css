@@ -139,6 +139,11 @@ select { cursor: pointer; }
   font-family: inherit; font-size: 9px; font-weight: 700; border: 1px solid #1a1a1a;
   background: #16a34a; color: white; padding: 2px 6px; cursor: pointer; white-space: nowrap;
 }
+.pdf-link-analyze {
+  font-family: inherit; font-size: 9px; font-weight: 700; border: 1px solid #1a1a1a;
+  background: #1a1a1a; color: white; padding: 2px 6px; cursor: pointer; white-space: nowrap;
+}
+.pdf-link-analyze:disabled { opacity: 0.5; cursor: wait; }
 
 /* Settings */
 .settings-bar {

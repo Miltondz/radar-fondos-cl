@@ -16,10 +16,11 @@ interface GeminiPanelProps {
 const OR_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined;
 
 const MODELS = [
-  "openai/gpt-oss-120b:free",
-  "minimax/minimax-m2.5:free",
-  "nvidia/nemotron-3-super-120b-a12b:free",
-  "google/gemini-2.5-flash",  // paid fallback — only used when all free models fail
+  "deepseek/deepseek-chat-v3-0324:free",
+  "meta-llama/llama-4-maverick:free",
+  "qwen/qwen3-235b-a22b:free",
+  "google/gemma-3-27b-it:free",
+  "google/gemini-2.5-flash",
 ] as const;
 
 interface Message {

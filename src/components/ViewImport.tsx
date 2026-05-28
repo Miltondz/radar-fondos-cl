@@ -21,10 +21,17 @@ interface ViewImportProps {
 const OR_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined;
 
 const MODELS = [
-  "openai/gpt-oss-120b:free",
-  "minimax/minimax-m2.5:free",
-  "nvidia/nemotron-3-super-120b-a12b:free",
+  "deepseek/deepseek-chat-v3-0324:free",
+  "meta-llama/llama-4-maverick:free",
+  "qwen/qwen3-235b-a22b:free",
+  "google/gemma-3-27b-it:free",
   "google/gemini-2.5-flash",
+] as const;
+
+const PDF_MODELS = [
+  "deepseek/deepseek-chat-v3-0324:free",
+  "meta-llama/llama-4-maverick:free",
+  "qwen/qwen3-235b-a22b:free",
 ] as const;
 
 const EXTRACTION_SYSTEM_PROMPT = `Eres un asistente de extracción de datos para "Radar Fondos CL", plataforma de inteligencia de financiamiento para startups chilenas.
@@ -149,6 +156,7 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
     catch { return false; }
   });
   const [loading, setLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<FundDraft | null>(null);
   const [success, setSuccess] = useState(false);
@@ -365,6 +373,62 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
     }
     setError(`Error al analizar: ${lastError?.message ?? "Ningún modelo disponible."}`);
     setLoading(false);
+  };
+
+  const analyzePdfUrl = async (pdfUrl: string) => {
+    if (!pdfUrl.trim() || !OR_KEY) return;
+    setPdfLoading(true);
+    setError(null);
+    for (const model of PDF_MODELS) {
+      try {
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${OR_KEY}`,
+            "HTTP-Referer": "https://radarfondos.netlify.app",
+            "X-Title": "Radar Fondos CL",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "file",
+                    file: { url: pdfUrl, filename: pdfUrl.split("/").pop() || "bases.pdf" },
+                  },
+                  {
+                    type: "text",
+                    text: `Analiza este documento oficial de bases y extrae con el siguiente formato exacto:
+
+REQUISITOS: [lista todos los requisitos de elegibilidad y documentación obligatoria que debe cumplir el postulante]
+ENTREGABLES: [qué documentos o materiales debe presentar — formularios, pitch deck, plan de negocio, prototipo, carta de compromiso, etc.]
+EVALUACIÓN: [criterios de evaluación, puntajes por criterio, etapas del proceso, quién evalúa, qué puntaje mínimo se requiere]
+
+Sé específico y cita datos exactos del documento. Si hay fechas, montos o porcentajes, inclúyelos.`,
+                  },
+                ],
+              },
+            ],
+            plugins: [{ id: "file-parser", pdf: { engine: "cloudflare-ai" } }],
+            temperature: 0.1,
+            max_tokens: 2000,
+          }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json() as { choices: Array<{ message: { content: string } }> };
+        const text = data.choices[0]?.message?.content ?? "";
+        if (text.trim()) {
+          setDraft(d => d ? { ...d, basesResumen: text.trim(), basesUrl: pdfUrl } : d);
+          setPdfLoading(false);
+          return;
+        }
+      } catch { /* try next model */ }
+    }
+    setError("No se pudo leer el PDF. Verifica que la URL sea pública y accesible.");
+    setPdfLoading(false);
   };
 
   const handleSave = () => {
@@ -681,7 +745,25 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
                       <Link className="h-3 w-3" /> Abrir
                     </a>
                   )}
+                  {draft.basesUrl && /\.(pdf|docx?)(\?|$)/i.test(draft.basesUrl) && OR_KEY && (
+                    <button
+                      onClick={() => analyzePdfUrl(draft!.basesUrl)}
+                      disabled={pdfLoading}
+                      className="shrink-0 flex items-center gap-1 px-3 py-2 border-2 border-ink bg-ink text-paper font-mono text-[10px] font-bold hover:bg-ink/85 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer select-none"
+                      title="Leer PDF con IA y extraer REQUISITOS / ENTREGABLES / EVALUACIÓN"
+                    >
+                      {pdfLoading
+                        ? <><RefreshCcw className="h-3 w-3 animate-spin" /> Leyendo…</>
+                        : <>📄 Leer PDF</>
+                      }
+                    </button>
+                  )}
                 </div>
+                {draft.basesUrl && /\.(pdf|docx?)(\?|$)/i.test(draft.basesUrl) && OR_KEY && (
+                  <p className="text-[10px] font-mono text-ink/40">
+                    "Leer PDF" extrae REQUISITOS / ENTREGABLES / EVALUACIÓN del documento oficial usando cloudflare-ai (gratis).
+                  </p>
+                )}
               </div>
 
               {draft.eligibilityNotes && (

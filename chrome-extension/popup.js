@@ -3,10 +3,17 @@
 const RADAR_APP_URL = 'https://radarfondos.netlify.app/';
 
 const MODELS_EXTRACT = [
-  'openai/gpt-oss-120b:free',
-  'minimax/minimax-m2.5:free',
-  'nvidia/nemotron-3-super-120b-a12b:free',
+  'deepseek/deepseek-chat-v3-0324:free',
+  'meta-llama/llama-4-maverick:free',
+  'qwen/qwen3-235b-a22b:free',
+  'google/gemma-3-27b-it:free',
   'google/gemini-2.5-flash',
+];
+
+const PDF_MODELS = [
+  'deepseek/deepseek-chat-v3-0324:free',
+  'meta-llama/llama-4-maverick:free',
+  'qwen/qwen3-235b-a22b:free',
 ];
 
 const PERPLEXITY_MODELS = [
@@ -263,6 +270,58 @@ async function callPerplexity(apiKey, url) {
   throw new Error('Perplexity no disponible.');
 }
 
+// ── Read PDF via OpenRouter file-parser plugin ────────────────
+async function readPdfFromUrl(apiKey, pdfUrl) {
+  for (const model of PDF_MODELS) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': RADAR_APP_URL,
+          'X-Title': 'Radar Fondos CL Extension',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'file',
+                  file: {
+                    url: pdfUrl,
+                    filename: pdfUrl.split('/').pop()?.split('?')[0] || 'bases.pdf',
+                  },
+                },
+                {
+                  type: 'text',
+                  text: `Analiza este documento oficial de bases y extrae con el siguiente formato exacto:
+
+REQUISITOS: [lista todos los requisitos de elegibilidad y documentación obligatoria]
+ENTREGABLES: [qué documentos o materiales debe presentar el postulante]
+EVALUACIÓN: [criterios, puntajes por criterio, etapas del proceso, comité evaluador]
+
+Sé específico. Cita datos exactos del documento (fechas, montos, porcentajes).`,
+                },
+              ],
+            },
+          ],
+          plugins: [{ id: 'file-parser', pdf: { engine: 'cloudflare-ai' } }],
+          temperature: 0.1,
+          max_tokens: 2000,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const text = data.choices?.[0]?.message?.content ?? '';
+      if (text.trim()) return text.trim();
+    } catch { /* try next */ }
+  }
+  throw new Error('No se pudo leer el PDF con ningún modelo.');
+}
+
 // ── Parse JSON from model response ───────────────────────────
 function parseJson(raw) {
   const match = raw.match(/\{[\s\S]*\}/);
@@ -291,15 +350,48 @@ function renderPdfLinks(pdfLinks) {
     open.textContent = 'Abrir';
     const use = document.createElement('button');
     use.className = 'pdf-link-use';
-    use.textContent = 'Usar';
+    use.textContent = 'Usar URL';
+    use.title = 'Copiar URL al campo de bases';
     use.addEventListener('click', () => {
       $('fieldBasesUrl').value = l.url;
       $('linkBases').href = l.url;
       $('linkBases').classList.remove('hidden');
     });
-    row.appendChild(label);
-    row.appendChild(open);
-    row.appendChild(use);
+
+    // Only show "Analizar PDF" for actual PDF/doc files
+    const isPdfFile = /\.(pdf|docx?)(\?|$)/i.test(l.url);
+    if (isPdfFile) {
+      const analyze = document.createElement('button');
+      analyze.className = 'pdf-link-analyze';
+      analyze.textContent = '📄 Leer';
+      analyze.title = 'Leer PDF con IA → extrae REQUISITOS / ENTREGABLES / EVALUACIÓN';
+      analyze.addEventListener('click', async () => {
+        const apiKey = await getApiKey();
+        if (!apiKey) { $('settingsPanel').classList.remove('hidden'); return; }
+        analyze.textContent = '⏳';
+        analyze.disabled = true;
+        try {
+          const content = await readPdfFromUrl(apiKey, l.url);
+          $('fieldBasesResumen').value = content;
+          $('fieldBasesUrl').value = l.url;
+          $('linkBases').href = l.url;
+          $('linkBases').classList.remove('hidden');
+          analyze.textContent = '✓';
+        } catch (e) {
+          analyze.textContent = '✗';
+          $('errorMsg').textContent = e.message;
+        }
+        setTimeout(() => { analyze.textContent = '📄 Leer'; analyze.disabled = false; }, 2000);
+      });
+      row.appendChild(label);
+      row.appendChild(open);
+      row.appendChild(analyze);
+      row.appendChild(use);
+    } else {
+      row.appendChild(label);
+      row.appendChild(open);
+      row.appendChild(use);
+    }
     list.appendChild(row);
   });
   section.classList.remove('hidden');
