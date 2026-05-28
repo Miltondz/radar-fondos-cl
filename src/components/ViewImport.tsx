@@ -146,27 +146,56 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
     if (!targetUrl) return;
     setUrlLoading(true);
     setError(null);
-    try {
-      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as { contents?: string };
-      if (!data.contents) throw new Error("Sin contenido en la respuesta del proxy.");
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(data.contents, "text/html");
-      doc.querySelectorAll("script, style, nav, footer, header, aside, [role='navigation'], [role='banner'], noscript").forEach(el => el.remove());
-      const text = (doc.body?.innerText || doc.body?.textContent || "")
-        .replace(/\s{3,}/g, "\n\n")
-        .trim();
-      if (!text) throw new Error("No se pudo extraer texto de la página.");
-      setInputText(prev => {
-        const combined = prev ? `${prev}\n\n---\n\n${text}` : text;
-        return combined.slice(0, 6000);
-      });
-      if (!urlOverride) setUrlInput("");
-      onUrlConsumed?.();
-    } catch (e) {
-      setError(`No se pudo cargar la URL: ${(e as Error).message}. Copia el texto de la página manualmente.`);
+
+    // Cascade of CORS proxies — try each until one succeeds
+    const PROXIES: Array<{ buildUrl: (u: string) => string; parse: (r: Response) => Promise<string> }> = [
+      {
+        buildUrl: (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+        parse: async (r) => await r.text(),
+      },
+      {
+        buildUrl: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+        parse: async (r) => await r.text(),
+      },
+      {
+        buildUrl: (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+        parse: async (r) => {
+          const d = await r.json() as { contents?: string };
+          return d.contents ?? "";
+        },
+      },
+    ];
+
+    let lastErr = "Todos los proxies fallaron.";
+    for (const proxy of PROXIES) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
+        const res = await fetch(proxy.buildUrl(targetUrl), { signal: controller.signal });
+        clearTimeout(timer);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const html = await proxy.parse(res);
+        if (!html) throw new Error("Respuesta vacía.");
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+        doc.querySelectorAll("script,style,nav,footer,header,aside,noscript,[role='navigation'],[role='banner']").forEach(el => el.remove());
+        const text = (doc.body?.innerText || doc.body?.textContent || "")
+          .replace(/\s{3,}/g, "\n\n")
+          .trim();
+        if (!text) throw new Error("Sin texto extraíble.");
+        setInputText(prev => {
+          const combined = prev ? `${prev}\n\n---\n\n${text}` : text;
+          return combined.slice(0, 6000);
+        });
+        if (!urlOverride) setUrlInput("");
+        onUrlConsumed?.();
+        setUrlLoading(false);
+        return;
+      } catch (e) {
+        lastErr = (e as Error).message;
+      }
     }
+    setError(`No se pudo cargar la URL: ${lastErr}. Copia el texto de la página manualmente.`);
     setUrlLoading(false);
   }, [urlInput, onUrlConsumed]);
 
