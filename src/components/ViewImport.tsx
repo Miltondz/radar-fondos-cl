@@ -35,7 +35,11 @@ REGLAS ESTRICTAS:
 4. amountNumber: entero en CLP. USD → multiplica por 950. Sin dato → 0.
 5. urgency: "CRITICAL" <7 días desde hoy 2026-05-28, "HIGH" <30 días, "MEDIUM" <90 días, "LOW" mayor plazo, "CLOSED" cerrado.
 6. Extrae TODOS los requisitos que encuentres (hasta 10 items).
-7. basesResumen: redacta un resumen estructurado de las bases con los puntos más importantes (elegibilidad, proceso de postulación, criterios de evaluación, compromisos del beneficiario). Mínimo 300 caracteres, máximo 800.
+7. basesResumen: redacta un resumen estructurado con EXACTAMENTE estas tres secciones (usa los encabezados tal cual):
+   "REQUISITOS: [lista los requisitos de elegibilidad y documentación obligatoria]
+    ENTREGABLES: [qué debe presentar o entregar el postulante — formularios, pitch, plan de negocio, prototipo, etc.]
+    EVALUACIÓN: [criterios y metodología de evaluación — puntajes, etapas, comité, métricas que se valoran]"
+   Sé específico y concreto. Mínimo 300 caracteres, máximo 800.
 8. basesUrl: busca activamente el enlace directo al documento de bases, formulario de postulación o página oficial. Si el contenido tiene URLs, extrae la más relevante para postular.
 9. cofinancing: porcentaje o monto de cofinanciamiento requerido si aplica.
 10. eligibilityNotes: resumen de quién puede y quién NO puede postular.
@@ -57,7 +61,7 @@ Formato JSON a devolver:
   "requirements": ["Requisito detallado 1", "Requisito detallado 2"],
   "eligibilityNotes": "Quién puede postular y condiciones de exclusión",
   "urgency": "CRITICAL|HIGH|MEDIUM|LOW|CLOSED",
-  "basesResumen": "Resumen estructurado de las bases: objetivo del programa, montos disponibles, proceso de postulación paso a paso, criterios de evaluación, compromisos del beneficiario, plazos clave",
+  "basesResumen": "REQUISITOS: [...] ENTREGABLES: [...] EVALUACIÓN: [...]",
   "cofinancing": "Porcentaje o monto de cofinanciamiento requerido, o '' si no aplica",
   "tips": "Consejo estratégico clave para el postulante (máx 150 caracteres)",
   "chileCode": "Código licitación si aplica",
