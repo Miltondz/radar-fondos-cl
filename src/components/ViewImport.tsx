@@ -115,10 +115,20 @@ const TYPE_LABELS: Record<string, string> = {
   hackaton: "⚡ Hackaton",
 };
 
+const PERPLEXITY_MODELS = [
+  "perplexity/llama-3.1-sonar-small-128k-online",
+  "perplexity/llama-3.1-sonar-large-128k-online",
+] as const;
+
 export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFund, initialUrl, onUrlConsumed }: ViewImportProps) {
   const [inputText, setInputText] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
+  const [fetchStatus, setFetchStatus] = useState("");
+  const [usePerplexity, setUsePerplexity] = useState<boolean>(() => {
+    try { return localStorage.getItem("radar_import_perplexity") === "true"; }
+    catch { return false; }
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<FundDraft | null>(null);
@@ -141,13 +151,87 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
     [draft, customFunds]
   );
 
+  // Shared: parse raw AI response → set draft. Returns true if draft was set.
+  const applyParsedJson = useCallback((raw: string, sourceUrl = ""): boolean => {
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return false;
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.error || !parsed.name) return false;
+      const typeVal = ["financiamiento", "licitacion", "hackaton"].includes(parsed.type)
+        ? (parsed.type as FundType)
+        : "financiamiento";
+      const urgencyVal = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "CLOSED"].includes(parsed.urgency)
+        ? (parsed.urgency as Fund["urgency"])
+        : "MEDIUM";
+      setDraft({
+        name: String(parsed.name ?? "Sin nombre"),
+        entity: String(parsed.entity ?? "Desconocido"),
+        amount: String(parsed.amount ?? "N/D"),
+        amountNumber: Number(parsed.amountNumber) || 0,
+        deadline: String(parsed.deadline ?? "Por confirmar"),
+        deadlineISO: String(parsed.deadlineISO ?? ""),
+        description: String(parsed.description ?? ""),
+        category: String(parsed.category ?? "Innovation"),
+        type: typeVal,
+        url: sourceUrl || String(parsed.url ?? ""),
+        organizer: String(parsed.organizer ?? parsed.entity ?? ""),
+        requirements: Array.isArray(parsed.requirements) ? parsed.requirements.map(String) : [],
+        urgency: urgencyVal,
+        tips: String(parsed.tips ?? ""),
+        chileCode: String(parsed.chileCode ?? ""),
+        address: String(parsed.address ?? ""),
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const handleFetchUrl = useCallback(async (urlOverride?: string) => {
     const targetUrl = (urlOverride ?? urlInput).trim();
     if (!targetUrl) return;
     setUrlLoading(true);
     setError(null);
 
-    // Cascade of CORS proxies — try each until one succeeds
+    // Helper: call Perplexity online and set draft or textarea
+    const tryPerplexity = async (): Promise<boolean> => {
+      if (!client) return false;
+      setFetchStatus("Consultando Perplexity con acceso web…");
+      for (const model of PERPLEXITY_MODELS) {
+        try {
+          const completion = await client.chat.completions.create({
+            model,
+            messages: [
+              { role: "system", content: EXTRACTION_SYSTEM_PROMPT },
+              { role: "user", content: `Lee el contenido de esta URL y extrae los datos de la convocatoria en JSON:\n\n${targetUrl}` },
+            ],
+            temperature: 0.1,
+            max_tokens: 1500,
+          });
+          const raw = completion.choices[0]?.message?.content ?? "";
+          if (applyParsedJson(raw, targetUrl)) return true;
+          if (raw.trim()) { setInputText(raw.slice(0, 6000)); return true; }
+        } catch { /* try next */ }
+      }
+      return false;
+    };
+
+    // If Perplexity-first mode: skip proxies entirely
+    if (usePerplexity) {
+      const ok = await tryPerplexity();
+      if (ok) {
+        if (!urlOverride) setUrlInput("");
+        onUrlConsumed?.();
+      } else {
+        setError("Perplexity no pudo procesar la URL. Verifica la API key o copia el texto manualmente.");
+      }
+      setFetchStatus("");
+      setUrlLoading(false);
+      return;
+    }
+
+    // 1. CORS proxy cascade
     const PROXIES: Array<{ buildUrl: (u: string) => string; parse: (r: Response) => Promise<string> }> = [
       {
         buildUrl: (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
@@ -166,9 +250,9 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
       },
     ];
 
-    let lastErr = "Todos los proxies fallaron.";
     for (const proxy of PROXIES) {
       try {
+        setFetchStatus("Cargando página…");
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 10000);
         const res = await fetch(proxy.buildUrl(targetUrl), { signal: controller.signal });
@@ -189,15 +273,26 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
         });
         if (!urlOverride) setUrlInput("");
         onUrlConsumed?.();
+        setFetchStatus("");
         setUrlLoading(false);
         return;
-      } catch (e) {
-        lastErr = (e as Error).message;
+      } catch {
+        // try next proxy
       }
     }
-    setError(`No se pudo cargar la URL: ${lastErr}. Copia el texto de la página manualmente.`);
+
+    // 2. Perplexity fallback when proxies all failed
+    setFetchStatus("Proxies bloqueados — intentando Perplexity como respaldo…");
+    const ok = await tryPerplexity();
+    if (ok) {
+      if (!urlOverride) setUrlInput("");
+      onUrlConsumed?.();
+    } else {
+      setError("No se pudo cargar la URL. Proxies y Perplexity fallaron. Copia el texto de la página manualmente.");
+    }
+    setFetchStatus("");
     setUrlLoading(false);
-  }, [urlInput, onUrlConsumed]);
+  }, [urlInput, onUrlConsumed, client, applyParsedJson, usePerplexity]);
 
   useEffect(() => {
     if (initialUrl) {
@@ -230,37 +325,9 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
         const jsonMatch = raw.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("Respuesta sin JSON válido.");
         const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.error) {
-          setError(parsed.error);
-          setLoading(false);
-          return;
-        }
-        const typeVal = ["financiamiento", "licitacion", "hackaton"].includes(parsed.type)
-          ? (parsed.type as FundType)
-          : "financiamiento";
-        const urgencyVal = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "CLOSED"].includes(parsed.urgency)
-          ? (parsed.urgency as Fund["urgency"])
-          : "MEDIUM";
-        setDraft({
-          name: String(parsed.name ?? "Sin nombre"),
-          entity: String(parsed.entity ?? "Desconocido"),
-          amount: String(parsed.amount ?? "N/D"),
-          amountNumber: Number(parsed.amountNumber) || 0,
-          deadline: String(parsed.deadline ?? "Por confirmar"),
-          deadlineISO: String(parsed.deadlineISO ?? ""),
-          description: String(parsed.description ?? ""),
-          category: String(parsed.category ?? "Innovation"),
-          type: typeVal,
-          url: String(parsed.url ?? ""),
-          organizer: String(parsed.organizer ?? parsed.entity ?? ""),
-          requirements: Array.isArray(parsed.requirements) ? parsed.requirements.map(String) : [],
-          urgency: urgencyVal,
-          tips: String(parsed.tips ?? ""),
-          chileCode: String(parsed.chileCode ?? ""),
-          address: String(parsed.address ?? ""),
-        });
-        setLoading(false);
-        return;
+        if (parsed.error) { setError(parsed.error); setLoading(false); return; }
+        if (applyParsedJson(raw)) { setLoading(false); return; }
+        throw new Error("No se pudo estructurar el JSON extraído.");
       } catch (e) {
         lastError = e as Error;
       }
@@ -336,14 +403,37 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
               className="flex items-center gap-1.5 bg-paper border-2 border-ink px-4 py-2 font-mono font-black text-xs uppercase tracking-wide hover:bg-paper-dark active:translate-y-[1px] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer select-none whitespace-nowrap shadow-[2px_2px_0px_rgba(0,0,0,0.3)]"
             >
               {urlLoading
-                ? <><RefreshCcw className="h-3.5 w-3.5 animate-spin" /> Cargando…</>
+                ? <><RefreshCcw className="h-3.5 w-3.5 animate-spin" /> {fetchStatus ? "IA Web…" : "Cargando…"}</>
                 : <><Link className="h-3.5 w-3.5" /> Cargar URL</>
               }
-
             </button>
           </div>
-          <p className="text-[10px] font-mono text-ink/40">
-            Funciona con páginas oficiales (CORFO, Mercado Público, SERCOTEC). Instagram/Facebook bloquean scraping — usa Opción B.
+          {urlLoading && fetchStatus && (
+            <p className="text-[10px] font-mono text-accent-purple font-bold animate-pulse">{fetchStatus}</p>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={usePerplexity}
+              onClick={() => {
+                const next = !usePerplexity;
+                setUsePerplexity(next);
+                try { localStorage.setItem("radar_import_perplexity", String(next)); } catch { /* noop */ }
+              }}
+              className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer border border-ink transition-colors ${usePerplexity ? "bg-accent-purple" : "bg-ink/20"}`}
+            >
+              <span className={`inline-block h-3 w-3 mt-[0.5px] bg-white border border-ink transition-transform ${usePerplexity ? "translate-x-[17px]" : "translate-x-[0.5px]"}`} />
+            </button>
+            <span className="text-[10px] font-mono text-ink/60">
+              Usar <strong className={usePerplexity ? "text-accent-purple" : ""}>Perplexity</strong> directamente
+              {usePerplexity
+                ? " — acceso web real, omite proxies (usa créditos API)"
+                : " — proxies CORS primero, Perplexity solo si fallan"}
+            </span>
+          </div>
+          <p className="text-[10px] font-mono text-ink/35">
+            Perplexity ON: más confiable para cualquier URL. OFF: proxies gratis primero. Instagram/Facebook requieren copiar texto manualmente.
           </p>
         </div>
 
