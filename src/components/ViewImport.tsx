@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, Trash2, CheckCircle, AlertCircle, Plus, RefreshCcw, Package } from "lucide-react";
+import { Sparkles, Trash2, CheckCircle, AlertCircle, Plus, RefreshCcw, Package, Link } from "lucide-react";
 import OpenAI from "openai";
 import { Fund, FundStatus } from "../types";
 import { ALL_FUNDS } from "../data";
@@ -115,6 +115,8 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFund }: ViewImportProps) {
   const [inputText, setInputText] = useState("");
+  const [urlInput, setUrlInput] = useState("");
+  const [urlLoading, setUrlLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<FundDraft | null>(null);
@@ -136,6 +138,33 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
     () => draft ? checkDuplicate(draft.name, draft.entity, ALL_FUNDS, customFunds) : null,
     [draft, customFunds]
   );
+
+  const handleFetchUrl = async () => {
+    if (!urlInput.trim()) return;
+    setUrlLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(urlInput.trim())}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { contents?: string };
+      if (!data.contents) throw new Error("Sin contenido en la respuesta del proxy.");
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(data.contents, "text/html");
+      doc.querySelectorAll("script, style, nav, footer, header, aside, [role='navigation'], [role='banner'], noscript").forEach(el => el.remove());
+      const text = (doc.body?.innerText || doc.body?.textContent || "")
+        .replace(/\s{3,}/g, "\n\n")
+        .trim();
+      if (!text) throw new Error("No se pudo extraer texto de la página.");
+      setInputText(prev => {
+        const combined = prev ? `${prev}\n\n---\n\n${text}` : text;
+        return combined.slice(0, 6000);
+      });
+      setUrlInput("");
+    } catch (e) {
+      setError(`No se pudo cargar la URL: ${(e as Error).message}. Copia el texto de la página manualmente.`);
+    }
+    setUrlLoading(false);
+  };
 
   const handleAnalyze = async () => {
     if (!inputText.trim() || !client) return;
@@ -245,10 +274,49 @@ export default function ViewImport({ customFunds, onImportFund, onDeleteCustomFu
           <span className="bg-ink text-paper font-mono font-black text-xs px-2 py-0.5 select-none">1</span>
           <h2 className="font-display font-black text-base uppercase tracking-wide text-ink">Pega el contenido a analizar</h2>
         </div>
-        <p className="text-xs font-mono text-ink/60 leading-relaxed">
-          Copia el texto completo de una publicación en Instagram, LinkedIn, Facebook o una página web oficial.
-          Incluye el nombre del programa, entidad, monto, fecha y requisitos si los menciona.
-        </p>
+        {/* URL fetch */}
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono font-bold uppercase text-ink/50 tracking-wider">
+            Opción A — Pegar URL de página web
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="url"
+              className="flex-1 border-2 border-ink bg-paper-dark font-mono text-xs text-ink px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-ink/30 placeholder:text-ink/35"
+              placeholder="https://www.corfo.cl/… o mercadopublico.cl/…"
+              value={urlInput}
+              onChange={e => setUrlInput(e.target.value)}
+              disabled={urlLoading || loading}
+              onKeyDown={e => { if (e.key === "Enter") handleFetchUrl(); }}
+            />
+            <button
+              onClick={handleFetchUrl}
+              disabled={!urlInput.trim() || urlLoading || loading}
+              className="flex items-center gap-1.5 bg-paper border-2 border-ink px-4 py-2 font-mono font-black text-xs uppercase tracking-wide hover:bg-paper-dark active:translate-y-[1px] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer select-none whitespace-nowrap shadow-[2px_2px_0px_rgba(0,0,0,0.3)]"
+            >
+              {urlLoading
+                ? <><RefreshCcw className="h-3.5 w-3.5 animate-spin" /> Cargando…</>
+                : <><Link className="h-3.5 w-3.5" /> Cargar URL</>
+              }
+            </button>
+          </div>
+          <p className="text-[10px] font-mono text-ink/40">
+            Funciona con páginas oficiales (CORFO, Mercado Público, SERCOTEC). Instagram/Facebook bloquean scraping — usa Opción B.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 text-[10px] font-mono text-ink/35 uppercase tracking-widest">
+          <div className="flex-1 h-px bg-ink/15" />
+          <span>O</span>
+          <div className="flex-1 h-px bg-ink/15" />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono font-bold uppercase text-ink/50 tracking-wider">
+            Opción B — Pegar texto copiado
+          </label>
+        </div>
+
         <textarea
           className="w-full h-44 border-2 border-ink bg-paper-dark font-mono text-xs text-ink p-3 resize-y focus:outline-none focus:ring-2 focus:ring-ink/40 placeholder:text-ink/35"
           placeholder={`Ejemplos de texto a pegar:\n\n• "CORFO abre convocatoria Capital Semilla hasta $20M CLP, cierre 30 junio 2026. Requisitos: startup tecnológica, equipo de 2+ personas..."\n\n• Texto completo de publicación en LinkedIn de Startup Chile\n\n• Descripción de licitación copiada de Mercado Público`}
