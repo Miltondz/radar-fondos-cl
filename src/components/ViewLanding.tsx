@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   CalendarDays, Copy, Check, Layers, Settings2, CalendarRange,
-  ArrowRight, Info, TrendingUp, Wallet
+  ArrowRight, Info, TrendingUp, Wallet, Printer, Clock
 } from "lucide-react";
 import { Fund, MiltonProfile } from "../types";
 import { ALL_FUNDS } from "../data";
@@ -26,6 +26,8 @@ interface ViewLandingProps {
   onApplyPreset: (ids: string[]) => void;
   onToggleStar: (id: string) => void;
   onNavigateTo: (tab: string) => void;
+  recentFundIds?: string[];
+  allFunds?: Fund[];
 }
 
 export default function ViewLanding({
@@ -39,6 +41,8 @@ export default function ViewLanding({
   onApplyPreset,
   onToggleStar,
   onNavigateTo,
+  recentFundIds = [],
+  allFunds = ALL_FUNDS,
 }: ViewLandingProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<"optimizer" | "calendar" | "stacker">("optimizer");
@@ -404,6 +408,59 @@ export default function ViewLanding({
             );
           })}
         </div>
+      </div>
+
+      {/* ── RECENT HISTORY + EXPORT ── */}
+      <div className="flex flex-col sm:flex-row gap-6 items-start">
+
+        {/* Recent history */}
+        {recentFundIds.length > 0 && (
+          <div className="flex-1 bg-paper border-2 border-ink p-5 shadow-[3px_3px_0px_#000]">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="h-4 w-4 text-ink/60" />
+              <span className="text-[10px] font-mono font-black uppercase tracking-widest text-ink/60">Historial Reciente</span>
+            </div>
+            <div className="space-y-2">
+              {recentFundIds.slice(0, 6).map(id => {
+                const fund = allFunds.find(f => f.id === id);
+                if (!fund) return null;
+                return (
+                  <div
+                    key={id}
+                    className="flex items-center gap-3 py-1.5 border-b border-ink/10 last:border-0"
+                  >
+                    <span className={`shrink-0 w-1.5 h-1.5 ${fund.urgency === "CRITICAL" ? "bg-alert" : fund.urgency === "HIGH" ? "bg-warning" : fund.urgency === "CLOSED" ? "bg-ink/30" : "bg-safe"}`} />
+                    <div className="flex-1 min-w-0">
+                      <span className="block font-mono font-bold text-[11px] text-ink truncate">{fund.name}</span>
+                      <span className="block font-mono text-[9px] text-ink/50 truncate">{fund.entity} · {fund.deadline}</span>
+                    </div>
+                    <button
+                      onClick={() => onNavigateTo(fund.type === "licitacion" ? "licitaciones" : fund.type === "hackaton" ? "hackatones" : "financiamientos")}
+                      className="shrink-0 px-2 py-0.5 border border-ink/30 text-[9px] font-mono text-ink/60 hover:border-ink hover:text-ink transition-colors cursor-pointer"
+                    >
+                      Ver
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Export PDF button */}
+        <div className="shrink-0">
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-5 py-3 bg-paper border-2 border-ink font-mono font-black text-xs uppercase tracking-wide shadow-[3px_3px_0px_#000] hover:bg-paper-dark hover:translate-y-[-1px] active:translate-y-[0.5px] transition-all cursor-pointer print:hidden"
+          >
+            <Printer className="h-4 w-4" />
+            Exportar Portafolio PDF
+          </button>
+          <p className="text-[9px] font-mono text-ink/40 mt-1.5 max-w-[180px] leading-normal">
+            Imprime o guarda como PDF el dashboard completo
+          </p>
+        </div>
+
       </div>
 
     </div>

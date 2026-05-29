@@ -2,8 +2,10 @@ import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Building2, Calendar, ClipboardCheck, Sparkles, Layers, ListTodo,
-  MapPin, HelpCircle, Star, Info, Moon, Sun, BookOpen, Flame, Bell, User, Link, Search, X
+  MapPin, HelpCircle, Star, Info, Moon, Sun, BookOpen, Flame, Bell, User, Link, Search, X,
+  ExternalLink, Scale, Printer
 } from "lucide-react";
+import { formatCLP } from "./utils";
 import { MiltonProfile, Fund } from "./types";
 import { ALL_FUNDS } from "./data";
 import Header from "./components/Header";
@@ -214,6 +216,44 @@ export default function App() {
     );
   };
 
+  // Notes per fund
+  const [fundNotes, setFundNotes] = useState<Record<string, string>>(() => {
+    try { const s = localStorage.getItem("milton_radar_notes"); if (s) return JSON.parse(s); } catch { }
+    return {};
+  });
+  useEffect(() => {
+    try { localStorage.setItem("milton_radar_notes", JSON.stringify(fundNotes)); } catch (_) {}
+  }, [fundNotes]);
+  const handleUpdateNote = (id: string, note: string) => {
+    setFundNotes(prev => ({ ...prev, [id]: note }));
+  };
+
+  // Recent funds (last 6 expanded)
+  const [recentFunds, setRecentFunds] = useState<string[]>(() => {
+    try { const s = localStorage.getItem("milton_radar_recent"); if (s) return JSON.parse(s); } catch { }
+    return [];
+  });
+  useEffect(() => {
+    try { localStorage.setItem("milton_radar_recent", JSON.stringify(recentFunds)); } catch (_) {}
+  }, [recentFunds]);
+  const handleTrackRecent = (id: string) => {
+    setRecentFunds(prev => [id, ...prev.filter(r => r !== id)].slice(0, 6));
+  };
+
+  // Compare (up to 3)
+  const [compareFundIds, setCompareFundIds] = useState<string[]>([]);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  const handleToggleCompare = (id: string) => {
+    setCompareFundIds(prev =>
+      prev.includes(id) ? prev.filter(c => c !== id) : prev.length < 3 ? [...prev, id] : prev
+    );
+  };
+
+  // Deep link: ?fund=<id>
+  const [initialExpandedFundId, setInitialExpandedFundId] = useState<string | null>(() => {
+    try { return new URLSearchParams(window.location.search).get("fund"); } catch { return null; }
+  });
+
   // Browser notifications for urgent deadlines
   useEffect(() => {
     if (!("Notification" in window)) return;
@@ -238,6 +278,43 @@ export default function App() {
     } else if (Notification.permission !== "denied") {
       Notification.requestPermission().then(p => { if (p === "granted") requestAndNotify(); });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Deep link navigation
+  useEffect(() => {
+    if (!initialExpandedFundId) return;
+    const fund = [...ALL_FUNDS, ...customFunds].find(f => f.id === initialExpandedFundId);
+    if (fund) setActiveTab(fund.type === "licitacion" ? "licitaciones" : fund.type === "hackaton" ? "hackatones" : "financiamientos");
+    window.history.replaceState({}, "", window.location.pathname);
+    setTimeout(() => setInitialExpandedFundId(null), 500);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const tabKeys: Record<string, typeof activeTab> = {
+      "1": "landing", "2": "financiamientos", "3": "licitaciones",
+      "4": "hackatones", "5": "roadmap", "6": "agenda",
+      "7": "ia", "8": "configuracion", "9": "importar",
+    };
+    const handler = (e: KeyboardEvent) => {
+      const isInput = (e.target as HTMLElement).matches("input,textarea,select,[contenteditable]");
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        document.getElementById("global-search-input")?.focus();
+        return;
+      }
+      if (!isInput && !e.ctrlKey && !e.metaKey && !e.altKey && tabKeys[e.key]) {
+        setActiveTab(tabKeys[e.key]);
+      }
+      if (e.key === "Escape") {
+        setShowCompareModal(false);
+        setGlobalSearch("");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -364,6 +441,7 @@ export default function App() {
         </div>
 
         {/* 4-Pillar Subpages Navigation Track */}
+        <div className="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm -mx-3 sm:-mx-6 lg:-mx-8 px-3 sm:px-6 lg:px-8 pt-1 pb-0">
         <div className="flex border-2 border-ink bg-paper shadow-[4px_4px_0px_#1a1a1a] overflow-x-auto" id="radar-hub-toptabs" style={{ scrollbarWidth: "none" } as React.CSSProperties}>
           <button
             onClick={() => setActiveTab("landing")}
@@ -464,6 +542,7 @@ export default function App() {
             </span>
           </button>
         </div>
+        </div>{/* /sticky wrapper */}
 
         {/* Persistent Quick Import URL Bar */}
         <div className="flex items-center gap-0 border-2 border-t-0 border-ink bg-paper-dark shadow-[4px_2px_0px_#1a1a1a]">
@@ -497,8 +576,9 @@ export default function App() {
             <Search className="h-3.5 w-3.5 text-ink/40 shrink-0" />
             <input
               type="text"
+              id="global-search-input"
               className="flex-1 bg-transparent font-mono text-xs text-ink py-2.5 focus:outline-none placeholder:text-ink/30"
-              placeholder="Buscar en todos los fondos, licitaciones y hackatones…"
+              placeholder="Buscar… (Ctrl+K)"
               value={globalSearch}
               onChange={e => setGlobalSearch(e.target.value)}
             />
@@ -557,6 +637,8 @@ export default function App() {
                   onApplyPreset={handleApplyPresetStack}
                   onToggleStar={toggleStar}
                   onNavigateTo={(tab) => setActiveTab(tab as typeof activeTab)}
+                  recentFundIds={recentFunds}
+                  allFunds={allFunds}
                 />
               )}
 
@@ -573,6 +655,12 @@ export default function App() {
                   onArchiveFund={handleArchiveCustomFund}
                   appliedFundIds={appliedFunds.map(a => a.id)}
                   onToggleApplied={handleToggleApplied}
+                  fundNotes={fundNotes}
+                  onUpdateNote={handleUpdateNote}
+                  compareFundIds={compareFundIds}
+                  onToggleCompare={handleToggleCompare}
+                  onTrackRecent={handleTrackRecent}
+                  initialExpandedFundId={initialExpandedFundId}
                 />
               )}
 
@@ -589,6 +677,12 @@ export default function App() {
                   onArchiveFund={handleArchiveCustomFund}
                   appliedFundIds={appliedFunds.map(a => a.id)}
                   onToggleApplied={handleToggleApplied}
+                  fundNotes={fundNotes}
+                  onUpdateNote={handleUpdateNote}
+                  compareFundIds={compareFundIds}
+                  onToggleCompare={handleToggleCompare}
+                  onTrackRecent={handleTrackRecent}
+                  initialExpandedFundId={initialExpandedFundId}
                 />
               )}
 
@@ -605,6 +699,12 @@ export default function App() {
                   onArchiveFund={handleArchiveCustomFund}
                   appliedFundIds={appliedFunds.map(a => a.id)}
                   onToggleApplied={handleToggleApplied}
+                  fundNotes={fundNotes}
+                  onUpdateNote={handleUpdateNote}
+                  compareFundIds={compareFundIds}
+                  onToggleCompare={handleToggleCompare}
+                  onTrackRecent={handleTrackRecent}
+                  initialExpandedFundId={initialExpandedFundId}
                 />
               )}
 
@@ -666,6 +766,106 @@ export default function App() {
 
       {/* Floating AI — visible in all views */}
       <FloatingAI profile={profile} stackedFunds={stackedFunds} currentView={activeTab} />
+
+      {/* Compare bottom bar */}
+      {compareFundIds.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-ink text-paper border-t-2 border-paper/20 px-4 py-3 flex items-center gap-3 shadow-[0_-4px_0px_rgba(0,0,0,0.4)]">
+          <Scale className="h-4 w-4 text-warning shrink-0" />
+          <span className="font-mono text-xs font-bold uppercase tracking-wider shrink-0">Comparar ({compareFundIds.length}/3):</span>
+          <div className="flex gap-2 flex-1 min-w-0 overflow-x-auto" style={{ scrollbarWidth: "none" } as React.CSSProperties}>
+            {compareFundIds.map(id => {
+              const f = allFunds.find(x => x.id === id);
+              return f ? (
+                <span key={id} className="inline-flex items-center gap-1 bg-paper/10 border border-paper/20 px-2 py-0.5 text-[10px] font-mono whitespace-nowrap">
+                  {f.name.split(" ").slice(0, 3).join(" ")}
+                  <button onClick={() => handleToggleCompare(id)} className="ml-1 hover:text-alert cursor-pointer">
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              ) : null;
+            })}
+          </div>
+          <button
+            onClick={() => setShowCompareModal(true)}
+            className="shrink-0 px-4 py-1.5 bg-warning text-ink font-mono font-black text-[10px] uppercase border border-paper/20 hover:bg-warning/80 cursor-pointer transition-colors"
+          >
+            Ver Comparación
+          </button>
+          <button onClick={() => setCompareFundIds([])} className="shrink-0 text-paper/50 hover:text-paper cursor-pointer ml-1">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Compare modal */}
+      <AnimatePresence>
+        {showCompareModal && compareFundIds.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-start justify-center bg-ink/80 backdrop-blur-sm overflow-y-auto py-8 px-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowCompareModal(false); }}
+          >
+            <motion.div
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 30, opacity: 0 }}
+              className="w-full max-w-5xl bg-paper border-2 border-ink shadow-[8px_8px_0px_#000]"
+            >
+              <div className="flex items-center justify-between p-4 border-b-2 border-ink bg-ink text-paper">
+                <div className="flex items-center gap-2">
+                  <Scale className="h-4 w-4" />
+                  <span className="font-mono font-black text-sm uppercase tracking-wider">Comparador de Convocatorias</span>
+                </div>
+                <button onClick={() => setShowCompareModal(false)} className="p-1 hover:bg-paper/10 cursor-pointer transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className={`grid gap-0 ${compareFundIds.length === 1 ? "grid-cols-1" : compareFundIds.length === 2 ? "grid-cols-2" : "grid-cols-3"} divide-x-2 divide-ink`}>
+                {compareFundIds.map(id => {
+                  const fund = allFunds.find(f => f.id === id);
+                  if (!fund) return null;
+                  const isStacked = stackedFunds.some(f => f.id === id);
+                  return (
+                    <div key={id} className="p-5 space-y-4">
+                      <div>
+                        <span className="text-[9px] font-mono uppercase tracking-widest text-ink/50 block">{fund.entity}</span>
+                        <h3 className="font-sans font-black text-sm text-ink mt-0.5 leading-snug">{fund.name}</h3>
+                      </div>
+                      <div className="space-y-2 text-xs">
+                        {([
+                          ["Monto", <span className="font-black text-alert font-mono text-[11px]">{formatCLP(fund.amountNumber)}</span>],
+                          ["Cierre", <span className="font-mono font-bold text-[11px]">{fund.deadline}</span>],
+                          ["Urgencia", <span className={`px-1.5 py-0.5 text-[9px] font-black border border-ink ${fund.urgency === "CRITICAL" ? "bg-alert text-white" : fund.urgency === "HIGH" ? "bg-warning text-ink" : fund.urgency === "CLOSED" ? "bg-ink/30 text-white" : "bg-paper-dark text-ink"}`}>{fund.urgency}</span>],
+                          ["Categoría", <span className="font-mono text-[10px] font-bold">{fund.category}</span>],
+                          ["Requiere SpA", <span className={`font-mono text-[10px] font-bold ${fund.requiresSpA ? "text-alert" : "text-safe"}`}>{fund.requiresSpA ? "Sí" : "No"}</span>],
+                          ["Socia", <span className={`font-mono text-[10px] font-bold ${fund.eligibilityGenderRequired ? "text-alert" : "text-safe"}`}>{fund.eligibilityGenderRequired ? "Requerida" : "No requerida"}</span>],
+                          ["Ventas $0", <span className={`font-mono text-[10px] font-bold ${fund.eligibilitySalesRestricted ? "text-warning" : "text-safe"}`}>{fund.eligibilitySalesRestricted ? "Necesario" : "Sin restricción"}</span>],
+                        ] as [string, React.ReactNode][]).map(([label, value]) => (
+                          <div key={label} className="flex justify-between items-center border-b border-ink/10 pb-1">
+                            <span className="font-mono text-ink/60 text-[10px] uppercase">{label}</span>
+                            {value}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[10px] font-serif text-ink/80 leading-relaxed line-clamp-3">{fund.description}</p>
+                      <div className="flex gap-2 flex-wrap pt-2 border-t border-ink/10">
+                        <a href={fund.url} target="_blank" rel="noopener noreferrer"
+                          className="flex-1 text-center px-3 py-1.5 bg-accent-green text-white font-mono font-black text-[9px] uppercase border border-ink hover:opacity-90 cursor-pointer"
+                        >POSTULAR</a>
+                        <button onClick={() => handleAddToStack(fund)} disabled={isStacked}
+                          className={`flex-1 text-center px-3 py-1.5 font-mono font-black text-[9px] uppercase border border-ink cursor-pointer ${isStacked ? "bg-safe/20 text-safe" : "bg-paper hover:bg-paper-dark text-ink"}`}
+                        >{isStacked ? "✓ Stack" : "+ Stack"}</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Onboarding Wizard */}
       {showOnboarding && (

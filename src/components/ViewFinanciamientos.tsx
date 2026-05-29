@@ -1,9 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Search, SlidersHorizontal, ArrowUpDown, Calendar, HelpCircle, ExternalLink, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, XOctagon, Copy, Check, CalendarDays, Filter, Landmark, Flame, Archive, ArchiveRestore, Trash2, Send, LayoutList, Table2 } from "lucide-react";
+import { Search, SlidersHorizontal, ArrowUpDown, Calendar, HelpCircle, ExternalLink, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, XOctagon, Copy, Check, CalendarDays, Filter, Landmark, Flame, Archive, ArchiveRestore, Trash2, Send, LayoutList, Table2, Scale, MessageSquare, Link2 } from "lucide-react";
 import { Fund, FundStatus, MiltonProfile, Entity } from "../types";
 import { ALL_FUNDS } from "../data";
-import { formatCLP, getGoogleCalendarUrl } from "../utils";
+import { formatCLP, getGoogleCalendarUrl, daysUntil } from "../utils";
 import { SECTION_COPY } from "../copy";
 import CalendarButton from "./CalendarButton";
 import EligibilityChecklist from "./EligibilityChecklist";
@@ -23,15 +23,26 @@ interface ViewFinanciamientosProps {
   onArchiveFund?: (id: string) => void;
   appliedFundIds?: string[];
   onToggleApplied?: (id: string) => void;
+  fundNotes?: Record<string, string>;
+  onUpdateNote?: (id: string, note: string) => void;
+  compareFundIds?: string[];
+  onToggleCompare?: (id: string) => void;
+  onTrackRecent?: (id: string) => void;
+  initialExpandedFundId?: string | null;
 }
 
-export default function ViewFinanciamientos({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund, appliedFundIds = [], onToggleApplied }: ViewFinanciamientosProps) {
+export default function ViewFinanciamientos({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund, appliedFundIds = [], onToggleApplied, fundNotes = {}, onUpdateNote, compareFundIds = [], onToggleCompare, onTrackRecent, initialExpandedFundId }: ViewFinanciamientosProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "URGENTES" | "MUJERES" | "SEMILLA" | "ID_INNOVACION" | "CERRADO">("TODOS");
   const [sortBy, setSortBy] = useState<"URGENCY" | "AMOUNT" | "CLOSE_DATE">("URGENCY");
   const [expandedFundId, setExpandedFundId] = useState<string | null>("corfo-semilla-inicia-rm-2026");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [onlyEligible, setOnlyEligible] = useState(false);
+
+  useEffect(() => {
+    if (initialExpandedFundId) setExpandedFundId(initialExpandedFundId);
+  }, [initialExpandedFundId]);
 
   const handleCopyCode = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -46,7 +57,7 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
 
   const computeEligibility = (fund: Fund) => {
     if (fund.status === FundStatus.CLOSED) {
-      return { status: "Cerrado", color: "text-ink/60 bg-[#ccc] border-ink", icon: <XOctagon className="h-3.5 w-3.5" />, score: 0 };
+      return { status: "Cerrado", color: "text-ink/50 bg-ink/20 border-ink/40", icon: <XOctagon className="h-3.5 w-3.5" />, score: 0 };
     }
     
     if (fund.eligibilityGenderRequired && !profile.hasWoman) {
@@ -78,12 +89,14 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
   // Final filtered list
   const filteredFunds = useMemo(() => {
     return financiamientos.filter((fund) => {
-      const matchesSearch = 
+      const matchesSearch =
         fund.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         fund.entity.toLowerCase().includes(searchTerm.toLowerCase()) ||
         fund.description.toLowerCase().includes(searchTerm.toLowerCase());
 
       if (!matchesSearch) return false;
+
+      if (onlyEligible && computeEligibility(fund).score < 5) return false;
 
       switch (activeFilter) {
         case "URGENTES":
@@ -101,7 +114,8 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
           return fund.urgency !== "CLOSED" && fund.status !== FundStatus.CLOSED;
       }
     });
-  }, [financiamientos, searchTerm, activeFilter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [financiamientos, searchTerm, activeFilter, onlyEligible, profile]);
 
   // Sorted list
   const sortedFunds = useMemo(() => {
@@ -129,7 +143,9 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
   }, [filteredFunds, sortBy]);
 
   const toggleExpand = (id: string) => {
-    setExpandedFundId(expandedFundId === id ? null : id);
+    const next = expandedFundId === id ? null : id;
+    setExpandedFundId(next);
+    if (next) onTrackRecent?.(id);
   };
 
   const getUrgencyBadge = (urgency: string, statusText: string) => {
@@ -252,6 +268,18 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
             {filter === "TODOS" ? "💼 Activos" : filter === "URGENTES" ? "🚨 Cierre Urgente" : filter === "MUJERES" ? "♀️ Enfoque de Género" : filter === "SEMILLA" ? "🌱 Semilla / Escalamiento" : filter === "ID_INNOVACION" ? "🔬 I+D Tecnológica" : "🔒 Cerrados"}
           </button>
         ))}
+        <button
+          onClick={() => setOnlyEligible(v => !v)}
+          className={`px-3 py-1.5 font-mono text-xs border transition-all cursor-pointer shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center gap-1.5 ${
+            onlyEligible
+              ? "bg-safe text-white font-extrabold border-safe"
+              : "bg-paper border-ink hover:bg-paper-dark text-ink"
+          }`}
+          title="Mostrar sólo convocatorias compatibles con tu perfil actual"
+        >
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Solo elegibles
+        </button>
       </div>
 
       {/* Table View */}
@@ -347,6 +375,13 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
                         {fund.category}
                       </span>
                       {getUrgencyBadge(fund.urgency, fund.deadline)}
+                      {(() => {
+                        const days = daysUntil(fund.deadlineISO);
+                        if (days === null || fund.urgency === "CLOSED") return null;
+                        if (days <= 0) return <span className="bg-alert text-white px-2 py-0.5 font-mono text-[9px] font-black border border-ink uppercase">HOY</span>;
+                        if (days <= 30) return <span className={`px-2 py-0.5 font-mono text-[9px] font-black border border-ink uppercase ${days <= 7 ? "bg-alert/20 text-alert" : "bg-paper-dark text-ink/70"}`}>{days}d</span>;
+                        return null;
+                      })()}
                       {isApplied && (
                         <span className="bg-accent-green text-white px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-wider border border-accent-green">
                           ✓ POSTULÉ
@@ -473,6 +508,36 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
                           </div>
                         )}
 
+                        {/* Notes textarea */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-mono uppercase tracking-widest text-ink/60 flex items-center gap-1.5">
+                            <MessageSquare className="h-3 w-3" />
+                            Notas personales
+                          </label>
+                          <textarea
+                            value={fundNotes[fund.id] || ""}
+                            onChange={e => onUpdateNote?.(fund.id, e.target.value)}
+                            placeholder="Añade notas, contactos, recordatorios…"
+                            rows={2}
+                            className="w-full bg-paper border border-ink/30 focus:border-ink text-xs font-serif text-ink px-3 py-2 resize-none focus:outline-none placeholder:text-ink/30"
+                          />
+                        </div>
+
+                        {/* Share deep link */}
+                        <div className="flex items-center gap-2 text-[10px] font-mono text-ink/50">
+                          <Link2 className="h-3 w-3 shrink-0" />
+                          <button
+                            onClick={() => {
+                              const url = `${window.location.origin}${window.location.pathname}?fund=${fund.id}`;
+                              navigator.clipboard.writeText(url);
+                            }}
+                            className="hover:text-ink cursor-pointer hover:underline"
+                            title="Copiar enlace directo a esta convocatoria"
+                          >
+                            Copiar enlace directo
+                          </button>
+                        </div>
+
                         {/* Interactive Buttons footer inside drawer */}
                         <div className="flex gap-2 items-center pt-4 border-t border-ink/20 flex-wrap">
                           <a
@@ -528,6 +593,20 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
                           >
                             <Send className="h-3.5 w-3.5" />
                             {appliedFundIds.includes(fund.id) ? "✓ Postulé" : "Postulé"}
+                          </button>
+
+                          <button
+                            onClick={() => onToggleCompare?.(fund.id)}
+                            className={`px-3 py-2 text-[10px] font-mono font-bold uppercase border flex items-center gap-1.5 transition-colors cursor-pointer ${
+                              compareFundIds.includes(fund.id)
+                                ? "bg-warning text-ink border-warning"
+                                : "border-ink/40 text-ink/60 hover:border-ink hover:text-ink"
+                            }`}
+                            title={compareFundIds.includes(fund.id) ? "Quitar del comparador" : compareFundIds.length >= 3 ? "Máximo 3 fondos" : "Agregar al comparador"}
+                            disabled={!compareFundIds.includes(fund.id) && compareFundIds.length >= 3}
+                          >
+                            <Scale className="h-3.5 w-3.5" />
+                            {compareFundIds.includes(fund.id) ? "En comparador" : "Comparar"}
                           </button>
 
                           {fund.id.startsWith("custom-") && (

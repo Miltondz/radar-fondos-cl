@@ -66,7 +66,7 @@ export default function Resources({ profile }: ResourcesProps) {
                   className={`border border-ink p-3 cursor-pointer transition-all flex items-start gap-2.5 hover:bg-paper-dark shadow-[1px_1px_0px_rgba(0,0,0,0.15)] ${
                     isChecked 
                       ? "bg-paper-dark opacity-65"
-                      : "bg-white"
+                      : "bg-paper"
                   }`}
                 >
                   <div className="shrink-0 select-none mt-0.5">
@@ -124,7 +124,7 @@ export default function Resources({ profile }: ResourcesProps) {
                 <div 
                   key={doc.id}
                   onClick={() => toggleDoc(doc.id)}
-                  className={`border border-ink p-3 cursor-pointer transition-all flex flex-col justify-between hover:bg-paper-dark bg-white min-h-[105px] shadow-[1px_1px_0px_rgba(0,0,0,0.15)] ${
+                  className={`border border-ink p-3 cursor-pointer transition-all flex flex-col justify-between hover:bg-paper-dark bg-paper min-h-[105px] shadow-[1px_1px_0px_rgba(0,0,0,0.15)] ${
                     isChecked 
                       ? "bg-paper-dark opacity-65"
                       : ""

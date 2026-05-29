@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Search, Trophy, Gift, CheckCircle2, AlertTriangle, KeyRound, ExternalLink, Copy, Check, CalendarDays, Zap, ZapOff, Archive, ArchiveRestore, Trash2, Send } from "lucide-react";
+import { Search, Trophy, Gift, CheckCircle2, AlertTriangle, KeyRound, ExternalLink, Copy, Check, CalendarDays, Zap, ZapOff, Archive, ArchiveRestore, Trash2, Send, Scale, MessageSquare } from "lucide-react";
 import { Fund, FundStatus, MiltonProfile } from "../types";
 import { ALL_FUNDS } from "../data";
 import { formatCLP, getGoogleCalendarUrl } from "../utils";
@@ -23,13 +23,23 @@ interface ViewHackatonesProps {
   onArchiveFund?: (id: string) => void;
   appliedFundIds?: string[];
   onToggleApplied?: (id: string) => void;
+  fundNotes?: Record<string, string>;
+  onUpdateNote?: (id: string, note: string) => void;
+  compareFundIds?: string[];
+  onToggleCompare?: (id: string) => void;
+  onTrackRecent?: (id: string) => void;
+  initialExpandedFundId?: string | null;
 }
 
-export default function ViewHackatones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund, appliedFundIds = [], onToggleApplied }: ViewHackatonesProps) {
+export default function ViewHackatones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund, appliedFundIds = [], onToggleApplied, fundNotes = {}, onUpdateNote, compareFundIds = [], onToggleCompare, onTrackRecent, initialExpandedFundId }: ViewHackatonesProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "PREMIO_EFECTIVO" | "TECNOLOGICO" | "CERRADO">("TODOS");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedHackId, setExpandedHackId] = useState<string | null>("hack-academia-hacklab-2026");
+
+  useEffect(() => {
+    if (initialExpandedFundId) setExpandedHackId(initialExpandedFundId);
+  }, [initialExpandedFundId]);
 
   const handleCopyCode = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -84,7 +94,9 @@ export default function ViewHackatones({ profile, onAddToStack, stackedFunds, st
   }, [hackatones, searchTerm, activeFilter]);
 
   const toggleExpand = (id: string) => {
-    setExpandedHackId(expandedHackId === id ? null : id);
+    const next = expandedHackId === id ? null : id;
+    setExpandedHackId(next);
+    if (next) onTrackRecent?.(id);
   };
 
   return (
@@ -312,6 +324,21 @@ export default function ViewHackatones({ profile, onAddToStack, stackedFunds, st
                           </div>
                         )}
 
+                        {/* Notes textarea */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-mono uppercase tracking-widest text-ink/60 flex items-center gap-1.5">
+                            <MessageSquare className="h-3 w-3" />
+                            Notas personales
+                          </label>
+                          <textarea
+                            value={fundNotes[hack.id] || ""}
+                            onChange={e => onUpdateNote?.(hack.id, e.target.value)}
+                            placeholder="Añade notas, contactos, recordatorios…"
+                            rows={2}
+                            className="w-full bg-paper border border-ink/30 focus:border-ink text-xs font-serif text-ink px-3 py-2 resize-none focus:outline-none placeholder:text-ink/30"
+                          />
+                        </div>
+
                         {/* Interactive actions */}
                         <div className="flex gap-2 items-center pt-4 border-t border-ink/20 flex-wrap">
                           <a
@@ -361,6 +388,15 @@ export default function ViewHackatones({ profile, onAddToStack, stackedFunds, st
                             className={`px-3 py-2 text-[10px] font-mono font-bold uppercase border flex items-center gap-1.5 transition-colors cursor-pointer ${isApplied ? "bg-accent-green text-white border-accent-green" : "border-accent-green/50 text-accent-green hover:bg-accent-green hover:text-white"}`}
                           >
                             <Send className="h-3.5 w-3.5" />{isApplied ? "✓ Participé" : "Participé"}
+                          </button>
+
+                          <button
+                            onClick={() => onToggleCompare?.(hack.id)}
+                            className={`px-3 py-2 text-[10px] font-mono font-bold uppercase border flex items-center gap-1.5 transition-colors cursor-pointer ${compareFundIds.includes(hack.id) ? "bg-warning text-ink border-warning" : "border-ink/40 text-ink/60 hover:border-ink hover:text-ink"}`}
+                            disabled={!compareFundIds.includes(hack.id) && compareFundIds.length >= 3}
+                          >
+                            <Scale className="h-3.5 w-3.5" />
+                            {compareFundIds.includes(hack.id) ? "En comparador" : "Comparar"}
                           </button>
 
                           {hack.id.startsWith("custom-") && (
