@@ -161,3 +161,49 @@ select { cursor: pointer; }
 .settings-label { font-size: 9px; font-weight: 700; text-transform: uppercase; opacity: 0.5; }
 .settings-hint { font-size: 9px; opacity: 0.5; line-height: 1.6; }
 .settings-hint a { color: #3b82f6; }
+
+/* About panel */
+.about-panel {
+  padding: 16px 14px 12px;
+  background: #1a1a1a;
+  color: #f5f0e8;
+  border-top: 2px solid #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.about-logo { font-size: 28px; line-height: 1; margin-bottom: 2px; }
+.about-name {
+  font-weight: 900; font-size: 14px; letter-spacing: 0.12em;
+  color: #f5f0e8;
+}
+.about-tagline {
+  font-size: 9px; opacity: 0.55; letter-spacing: 0.06em;
+  text-transform: uppercase; line-height: 1.5;
+}
+.about-divider {
+  width: 40px; height: 1px; background: rgba(245,240,232,0.2); margin: 4px 0;
+}
+.about-desc {
+  font-size: 10px; opacity: 0.7; line-height: 1.6; max-width: 280px;
+}
+.about-link {
+  display: inline-block;
+  padding: 6px 14px;
+  border: 2px solid #f5f0e8;
+  color: #f5f0e8;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 900;
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  transition: background 0.1s, color 0.1s;
+  margin: 2px 0;
+}
+.about-link:hover { background: #f5f0e8; color: #1a1a1a; }
+.about-meta {
+  display: flex; gap: 5px; align-items: center;
+  font-size: 8px; opacity: 0.4; flex-wrap: wrap; justify-content: center;
+}

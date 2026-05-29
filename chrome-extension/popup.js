@@ -187,6 +187,11 @@ function bindEvents() {
   $('btnSuccessReset').addEventListener('click', () => { draftData = null; showSection('sectionAnalyze'); });
   $('btnToggleSettings').addEventListener('click', () => {
     $('settingsPanel').classList.toggle('hidden');
+    $('aboutPanel').classList.add('hidden');
+  });
+  $('btnToggleAbout').addEventListener('click', () => {
+    $('aboutPanel').classList.toggle('hidden');
+    $('settingsPanel').classList.add('hidden');
   });
   $('btnSaveKey').addEventListener('click', saveApiKey);
   $('btnClearKey').addEventListener('click', () => {

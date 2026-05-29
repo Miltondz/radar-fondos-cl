@@ -126,7 +126,10 @@
 
     <!-- Settings toggle -->
     <div class="settings-bar" style="display:flex;align-items:center;justify-content:space-between;">
-      <button class="btn-settings" id="btnToggleSettings">⚙ API Key</button>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="btn-settings" id="btnToggleSettings">⚙ API Key</button>
+        <button class="btn-settings" id="btnToggleAbout">ℹ Acerca de</button>
+      </div>
       <span id="keyStatus" style="font-size:9px;font-family:monospace;opacity:0.5;"></span>
     </div>
     <div class="settings-panel hidden" id="settingsPanel">
@@ -139,6 +142,30 @@
       <div class="settings-hint">
         Obtén tu key en <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>.<br/>
         Se guarda en chrome.storage.sync (persiste entre sesiones).
+      </div>
+    </div>
+
+    <!-- About panel -->
+    <div class="about-panel hidden" id="aboutPanel">
+      <div class="about-logo">📡</div>
+      <div class="about-name">RADAR FONDOS CL</div>
+      <div class="about-tagline">Inteligencia de financiamiento para startups chilenas</div>
+      <div class="about-divider"></div>
+      <div class="about-desc">
+        Extensión que analiza páginas de convocatorias con IA y las envía directamente a la aplicación web para su seguimiento.
+      </div>
+      <a href="https://radarfondos.netlify.app" target="_blank" class="about-link">
+        🌐 radarfondos.netlify.app
+      </a>
+      <div class="about-divider"></div>
+      <div class="about-meta">
+        <span>Motor: OpenRouter API</span>
+        <span>·</span>
+        <span>Modelos: DeepSeek · Llama · Qwen</span>
+      </div>
+      <div class="about-meta" style="margin-top:3px;">
+        <span>Desarrollado para</span>
+        <span style="font-weight:900;"> Milton Startup</span>
       </div>
     </div>
 
