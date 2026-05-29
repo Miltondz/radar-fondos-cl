@@ -2,6 +2,33 @@
 
 const RADAR_APP_URL = 'https://radarfondos.netlify.app/';
 
+// Sites where auto-analyze on open is enabled
+const AUTO_ANALYZE_DOMAINS = [
+  'corfo.cl', 'startupchile.org', 'sercotec.cl', 'fosis.cl',
+  'mercadopublico.cl', 'chilecompra.cl', 'anid.cl', 'conicyt.cl',
+  'minciencia.gob.cl', 'economia.gob.cl', 'proesa.cl',
+];
+
+// Site-specific DOM selectors for richer extraction
+const SITE_SELECTORS = {
+  'mercadopublico.cl': {
+    title: '.nombre-licitacion, h1.titulo, .detalle-licitacion h1',
+    body: '.resumen-licitacion, .descripcion-licitacion, #contenido-principal',
+  },
+  'corfo.cl': {
+    title: '.field--name-title h1, .page-title, h1.title',
+    body: '.field--name-body, .field--type-text-with-summary, .content-area',
+  },
+  'startupchile.org': {
+    title: 'h1.entry-title, .program-title, h1',
+    body: '.entry-content, .program-description, .program-details',
+  },
+  'sercotec.cl': {
+    title: 'h1, .titulo-convocatoria',
+    body: '.descripcion-convocatoria, .contenido-convocatoria, main',
+  },
+};
+
 const MODELS_EXTRACT = [
   'deepseek/deepseek-chat-v3-0324:free',
   'meta-llama/llama-4-maverick:free',
@@ -73,6 +100,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadApiKey();
   await initCurrentTab();
   bindEvents();
+  await checkCacheAndAutoAnalyze();
 });
 
 async function initCurrentTab() {
@@ -80,6 +108,74 @@ async function initCurrentTab() {
   currentTab = tab;
   $('pageUrl').textContent = tab.url || '—';
   $('pageTitle').textContent = tab.title || '';
+}
+
+// ── Cache helpers ─────────────────────────────────────────────
+async function getCachedResult(url) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get('analysisCache', (data) => {
+      const cache = data.analysisCache || {};
+      const entry = cache[url];
+      if (entry && Date.now() - entry.ts < 7 * 24 * 60 * 60 * 1000) {
+        resolve(entry.result);
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
+async function setCachedResult(url, result) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get('analysisCache', (data) => {
+      const cache = data.analysisCache || {};
+      cache[url] = { result, ts: Date.now() };
+      // Keep max 50 entries
+      const keys = Object.keys(cache);
+      if (keys.length > 50) {
+        keys.sort((a, b) => cache[a].ts - cache[b].ts).slice(0, keys.length - 50).forEach(k => delete cache[k]);
+      }
+      chrome.storage.local.set({ analysisCache: cache }, resolve);
+    });
+  });
+}
+
+// ── Auto-analyze on known funding sites ───────────────────────
+async function checkCacheAndAutoAnalyze() {
+  if (!currentTab?.url) return;
+  const url = currentTab.url;
+  const hostname = new URL(url).hostname.replace('www.', '');
+
+  // Check cache first
+  const cached = await getCachedResult(url);
+  if (cached) {
+    draftData = cached;
+    draftData._sourceUrl = url;
+    renderResult(cached);
+    renderPdfLinks(cached._pdfLinks || []);
+    showSection('sectionResult');
+    // Add cache indicator
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:9px;font-family:monospace;opacity:0.5;padding:4px 14px;';
+    hint.textContent = '⚡ Resultado cacheado — haz clic en "Analizar con IA" para refrescar';
+    $('sectionResult').prepend(hint);
+    return;
+  }
+
+  // Auto-analyze on known sites
+  const isKnownSite = AUTO_ANALYZE_DOMAINS.some(d => hostname.endsWith(d));
+  if (isKnownSite) {
+    const apiKey = await getApiKey();
+    if (apiKey) {
+      // Add subtle indicator
+      const hint = document.createElement('div');
+      hint.style.cssText = 'font-size:9px;font-family:monospace;opacity:0.5;padding:4px 14px;';
+      hint.textContent = `⚡ Auto-analizando ${hostname}…`;
+      $('sectionAnalyze').appendChild(hint);
+      // Small delay so user sees the popup
+      setTimeout(() => handleAnalyze(), 400);
+    }
+  }
 }
 
 // ── Events ────────────────────────────────────────────────────
@@ -110,17 +206,33 @@ function bindEvents() {
 
 // ── Extract page text via scripting API ───────────────────────
 async function getPageText() {
+  const hostname = new URL(currentTab.url).hostname.replace('www.', '');
+  const siteKey = Object.keys(SITE_SELECTORS).find(d => hostname.endsWith(d));
+  const selectors = siteKey ? SITE_SELECTORS[siteKey] : null;
+
   const results = await chrome.scripting.executeScript({
     target: { tabId: currentTab.id },
-    func: () => {
-      // Extract clean text
-      const clone = document.body.cloneNode(true);
-      clone.querySelectorAll(
-        'script,style,nav,footer,header,aside,noscript,[role="navigation"],[role="banner"]'
-      ).forEach((el) => el.remove());
-      const text = (clone.innerText || clone.textContent || '')
-        .replace(/\s{3,}/g, '\n\n')
-        .trim();
+    args: [selectors],
+    func: (siteSelectors) => {
+      let text = '';
+      // Try site-specific selectors first
+      if (siteSelectors) {
+        const titleEl = document.querySelector(siteSelectors.title);
+        const bodyEl = document.querySelector(siteSelectors.body);
+        if (titleEl || bodyEl) {
+          text = [(titleEl?.innerText || ''), (bodyEl?.innerText || bodyEl?.textContent || '')].join('\n\n').trim();
+        }
+      }
+      // Fallback to generic extraction
+      if (!text) {
+        const clone = document.body.cloneNode(true);
+        clone.querySelectorAll(
+          'script,style,nav,footer,header,aside,noscript,[role="navigation"],[role="banner"]'
+        ).forEach((el) => el.remove());
+        text = (clone.innerText || clone.textContent || '')
+          .replace(/\s{3,}/g, '\n\n')
+          .trim();
+      }
 
       // Extract PDF/document links from the REAL DOM (not clone)
       const pdfLinks = [];
@@ -187,6 +299,7 @@ async function handleAnalyze() {
     draftData = parsed;
     draftData._sourceUrl = page.url;
     draftData._pdfLinks = page.pdfLinks || [];
+    await setCachedResult(page.url, draftData);
     renderResult(parsed);
     renderPdfLinks(page.pdfLinks || []);
     showSection('sectionResult');
@@ -199,6 +312,7 @@ async function handleAnalyze() {
       if (parsed.error || !parsed.name) throw new Error(parsed.error || 'Sin datos');
       draftData = parsed;
       draftData._sourceUrl = currentTab.url;
+      await setCachedResult(currentTab.url, draftData);
       renderResult(parsed);
       showSection('sectionResult');
     } catch (err2) {

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Search, Building2, ClipboardCopy, CheckCircle2, AlertTriangle, XOctagon, Calendar, ExternalLink, Copy, Check, CalendarDays, KeyRound, Radio, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { Search, Building2, ClipboardCopy, CheckCircle2, AlertTriangle, XOctagon, Calendar, ExternalLink, Copy, Check, CalendarDays, KeyRound, Radio, Archive, ArchiveRestore, Trash2, Send } from "lucide-react";
 import { Fund, FundStatus, MiltonProfile } from "../types";
 import { ALL_FUNDS } from "../data";
 import { formatCLP, getGoogleCalendarUrl } from "../utils";
@@ -21,9 +21,11 @@ interface ViewLicitacionesProps {
   archivedFundIds?: string[];
   onDeleteFund?: (id: string) => void;
   onArchiveFund?: (id: string) => void;
+  appliedFundIds?: string[];
+  onToggleApplied?: (id: string) => void;
 }
 
-export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund }: ViewLicitacionesProps) {
+export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund, appliedFundIds = [], onToggleApplied }: ViewLicitacionesProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "COMPRA_AGIL" | "PUBLICO" | "CONVENIO_MARCO" | "CERRADO">("TODOS");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -150,11 +152,12 @@ export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, 
             const eligibility = computeEligibility(lic);
             const isStacked = stackedFunds.some(f => f.id === lic.id);
             const isClosed = lic.urgency === "CLOSED" || lic.status === FundStatus.CLOSED;
+            const isApplied = appliedFundIds.includes(lic.id);
 
             return (
               <div
                 key={lic.id}
-                className={`bg-paper border-2 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-colors ${isClosed ? "border-ink/30 opacity-60" : "border-ink hover:border-accent-blue"}`}
+                className={`bg-paper border-2 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-colors ${isApplied ? "border-accent-green" : isClosed ? "border-ink/30 opacity-60" : "border-ink hover:border-accent-blue"}`}
               >
                 
                 {/* Row banner */}
@@ -173,6 +176,11 @@ export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, 
                       <span className="bg-paper-dark border border-ink/20 px-2 py-0.5 text-[9.5px] text-ink/70 font-mono font-bold">
                         Cierre: {lic.deadline}
                       </span>
+                      {isApplied && (
+                        <span className="bg-accent-green text-white px-2 py-0.5 font-mono text-[9px] font-black uppercase border border-accent-green">
+                          ✓ POSTULÉ
+                        </span>
+                      )}
                     </div>
 
                     <h4 className="font-sans font-black text-lg text-ink tracking-tight truncate flex items-center gap-2">
@@ -357,6 +365,13 @@ export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, 
                           </a>
 
                           <CalendarButton item={lic} className="px-4 py-2 text-[10.5px]" />
+
+                          <button
+                            onClick={() => onToggleApplied?.(lic.id)}
+                            className={`px-3 py-2 text-[10px] font-mono font-bold uppercase border flex items-center gap-1.5 transition-colors cursor-pointer ${isApplied ? "bg-accent-green text-white border-accent-green" : "border-accent-green/50 text-accent-green hover:bg-accent-green hover:text-white"}`}
+                          >
+                            <Send className="h-3.5 w-3.5" />{isApplied ? "✓ Postulé" : "Postulé"}
+                          </button>
 
                           {lic.id.startsWith("custom-") && (
                             <>

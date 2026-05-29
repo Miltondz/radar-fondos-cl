@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Building2, Calendar, ClipboardCheck, Sparkles, Layers, ListTodo,
-  MapPin, HelpCircle, Star, Info, Moon, Sun, BookOpen, Flame, Bell, User, Link
+  MapPin, HelpCircle, Star, Info, Moon, Sun, BookOpen, Flame, Bell, User, Link, Search, X
 } from "lucide-react";
 import { MiltonProfile, Fund } from "./types";
 import { ALL_FUNDS } from "./data";
@@ -195,6 +195,55 @@ export default function App() {
     setArchivedFundIds(prev => prev.includes(id) ? prev.filter(aid => aid !== id) : [...prev, id]);
   };
 
+  // Postulation tracking: { id, appliedAt, notes }
+  const [appliedFunds, setAppliedFunds] = useState<{ id: string; appliedAt: string; notes: string }[]>(() => {
+    try {
+      const saved = localStorage.getItem("milton_radar_applied");
+      if (saved) return JSON.parse(saved);
+    } catch { /* noop */ }
+    return [];
+  });
+  useEffect(() => {
+    try { localStorage.setItem("milton_radar_applied", JSON.stringify(appliedFunds)); } catch (_) {}
+  }, [appliedFunds]);
+  const handleToggleApplied = (id: string) => {
+    setAppliedFunds(prev =>
+      prev.some(a => a.id === id)
+        ? prev.filter(a => a.id !== id)
+        : [...prev, { id, appliedAt: new Date().toISOString().slice(0, 10), notes: "" }]
+    );
+  };
+
+  // Browser notifications for urgent deadlines
+  useEffect(() => {
+    if (!("Notification" in window)) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const urgentStack = stackedFunds.filter(f =>
+      (f.urgency === "CRITICAL" || f.urgency === "HIGH") &&
+      f.deadlineISO && f.deadlineISO >= today
+    );
+    if (urgentStack.length === 0) return;
+    const requestAndNotify = () => {
+      urgentStack.forEach(f => {
+        const daysLeft = Math.ceil((new Date(f.deadlineISO!).getTime() - Date.now()) / 86400000);
+        new Notification(`⏰ ${f.name}`, {
+          body: `Cierra en ${daysLeft} día${daysLeft === 1 ? "" : "s"} (${f.deadline}) — ${f.entity}`,
+          icon: "/favicon.ico",
+          tag: f.id,
+        });
+      });
+    };
+    if (Notification.permission === "granted") {
+      requestAndNotify();
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(p => { if (p === "granted") requestAndNotify(); });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Global search
+  const [globalSearch, setGlobalSearch] = useState("");
+
   // Auto-navigate when extension injects data via URL param
   useEffect(() => {
     if (extensionImportDraft) setActiveTab("importar");
@@ -237,6 +286,17 @@ export default function App() {
   // State calculations — includes custom imported funds (excluding archived)
   const activeCustomFunds = customFunds.filter(f => !archivedFundIds.includes(f.id));
   const allFunds = [...ALL_FUNDS, ...activeCustomFunds];
+  const globalResults = useMemo(() => {
+    if (!globalSearch.trim()) return [];
+    const q = globalSearch.toLowerCase();
+    return allFunds.filter(f =>
+      f.name.toLowerCase().includes(q) ||
+      f.entity.toLowerCase().includes(q) ||
+      f.description.toLowerCase().includes(q) ||
+      (f.organizer || "").toLowerCase().includes(q)
+    ).slice(0, 12);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalSearch, customFunds, archivedFundIds]);
   const criticalCount = allFunds.filter(f => f.urgency === "CRITICAL").length;
   const countFinanciamientos = allFunds.filter(f => f.type === "financiamiento").length;
   const countLicitaciones = allFunds.filter(f => f.type === "licitacion").length;
@@ -383,7 +443,19 @@ export default function App() {
               activeTab === "importar" ? "bg-accent-green text-white font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
             }`}
           >
-            📥 Importar{customFunds.length > 0 ? ` (${customFunds.length})` : ""}
+            <span className="inline-flex items-center gap-1.5">
+              📥 Importar
+              {customFunds.length > 0 && (
+                <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-none text-[9px] font-black ${activeTab === "importar" ? "bg-white text-accent-green" : "bg-accent-green text-white"}`}>
+                  {customFunds.filter(f => !archivedFundIds.includes(f.id)).length}
+                </span>
+              )}
+              {customFunds.filter(f => f.urgency === "CLOSED" || f.deadlineISO && f.deadlineISO < new Date().toISOString().slice(0,10)).length > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-black bg-alert text-white" title="Fondos expirados">
+                  {customFunds.filter(f => f.urgency === "CLOSED" || (f.deadlineISO && f.deadlineISO < new Date().toISOString().slice(0,10))).length}🔒
+                </span>
+              )}
+            </span>
           </button>
         </div>
 
@@ -411,6 +483,50 @@ export default function App() {
             <Sparkles className="h-3 w-3" />
             Analizar
           </button>
+        </div>
+
+        {/* Global Search Bar */}
+        <div className="relative border-2 border-t-0 border-ink bg-paper">
+          <div className="flex items-center gap-2 px-3">
+            <Search className="h-3.5 w-3.5 text-ink/40 shrink-0" />
+            <input
+              type="text"
+              className="flex-1 bg-transparent font-mono text-xs text-ink py-2.5 focus:outline-none placeholder:text-ink/30"
+              placeholder="Buscar en todos los fondos, licitaciones y hackatones…"
+              value={globalSearch}
+              onChange={e => setGlobalSearch(e.target.value)}
+            />
+            {globalSearch && (
+              <button onClick={() => setGlobalSearch("")} className="text-ink/40 hover:text-ink cursor-pointer">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {globalResults.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-50 border-2 border-t-0 border-ink bg-paper shadow-[4px_4px_0px_#1a1a1a] max-h-80 overflow-y-auto">
+              {globalResults.map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => {
+                    setActiveTab(f.type === "licitacion" ? "licitaciones" : f.type === "hackaton" ? "hackatones" : "financiamientos");
+                    setGlobalSearch("");
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-paper-dark border-b border-ink/10 last:border-0 cursor-pointer text-left"
+                >
+                  <span className={`shrink-0 px-1.5 py-0.5 text-[8px] font-mono font-black uppercase border border-ink ${
+                    f.urgency === "CRITICAL" ? "bg-alert text-white" :
+                    f.urgency === "HIGH" ? "bg-warning text-ink" :
+                    f.urgency === "CLOSED" ? "bg-ink/30 text-white" : "bg-paper-dark text-ink"
+                  }`}>{f.urgency}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-mono font-bold text-xs text-ink truncate">{f.name}</span>
+                    <span className="block font-mono text-[10px] text-ink/50 truncate">{f.entity} · {f.amount}</span>
+                  </span>
+                  <span className="shrink-0 text-[9px] font-mono text-ink/40 uppercase">{f.type}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Reactive Tab Component Router Frame */}
@@ -449,6 +565,8 @@ export default function App() {
                   archivedFundIds={archivedFundIds}
                   onDeleteFund={handleDeleteCustomFund}
                   onArchiveFund={handleArchiveCustomFund}
+                  appliedFundIds={appliedFunds.map(a => a.id)}
+                  onToggleApplied={handleToggleApplied}
                 />
               )}
 
@@ -463,6 +581,8 @@ export default function App() {
                   archivedFundIds={archivedFundIds}
                   onDeleteFund={handleDeleteCustomFund}
                   onArchiveFund={handleArchiveCustomFund}
+                  appliedFundIds={appliedFunds.map(a => a.id)}
+                  onToggleApplied={handleToggleApplied}
                 />
               )}
 
@@ -477,6 +597,8 @@ export default function App() {
                   archivedFundIds={archivedFundIds}
                   onDeleteFund={handleDeleteCustomFund}
                   onArchiveFund={handleArchiveCustomFund}
+                  appliedFundIds={appliedFunds.map(a => a.id)}
+                  onToggleApplied={handleToggleApplied}
                 />
               )}
 

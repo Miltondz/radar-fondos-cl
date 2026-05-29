@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Search, SlidersHorizontal, ArrowUpDown, Calendar, HelpCircle, ExternalLink, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, XOctagon, Copy, Check, CalendarDays, Filter, Landmark, Flame, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { Search, SlidersHorizontal, ArrowUpDown, Calendar, HelpCircle, ExternalLink, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, XOctagon, Copy, Check, CalendarDays, Filter, Landmark, Flame, Archive, ArchiveRestore, Trash2, Send, LayoutList, Table2 } from "lucide-react";
 import { Fund, FundStatus, MiltonProfile, Entity } from "../types";
 import { ALL_FUNDS } from "../data";
 import { formatCLP, getGoogleCalendarUrl } from "../utils";
@@ -21,14 +21,17 @@ interface ViewFinanciamientosProps {
   archivedFundIds?: string[];
   onDeleteFund?: (id: string) => void;
   onArchiveFund?: (id: string) => void;
+  appliedFundIds?: string[];
+  onToggleApplied?: (id: string) => void;
 }
 
-export default function ViewFinanciamientos({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund }: ViewFinanciamientosProps) {
+export default function ViewFinanciamientos({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund, appliedFundIds = [], onToggleApplied }: ViewFinanciamientosProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "URGENTES" | "MUJERES" | "SEMILLA" | "ID_INNOVACION" | "CERRADO">("TODOS");
   const [sortBy, setSortBy] = useState<"URGENCY" | "AMOUNT" | "CLOSE_DATE">("URGENCY");
   const [expandedFundId, setExpandedFundId] = useState<string | null>("corfo-semilla-inicia-rm-2026");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
   const handleCopyCode = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -186,8 +189,16 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
           />
         </div>
 
-        {/* Right Side: Sorting Options */}
+        {/* Right Side: Sorting Options + View toggle */}
         <div className="flex flex-wrap items-center gap-3">
+          <div className="flex border border-ink bg-paper p-0.5">
+            <button onClick={() => setViewMode("cards")} className={`px-2 py-1 text-[10px] font-mono transition-all cursor-pointer ${viewMode === "cards" ? "bg-ink text-paper" : "bg-paper hover:bg-paper-dark text-ink"}`} title="Vista tarjetas">
+              <LayoutList className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => setViewMode("table")} className={`px-2 py-1 text-[10px] font-mono transition-all cursor-pointer ${viewMode === "table" ? "bg-ink text-paper" : "bg-paper hover:bg-paper-dark text-ink"}`} title="Vista tabla">
+              <Table2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
           <div className="flex items-center gap-1.5 font-mono text-xs text-ink/90">
             <ArrowUpDown className="h-3.5 w-3.5" />
             <span>Ordenar:</span>
@@ -243,8 +254,63 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
         ))}
       </div>
 
-      {/* Main Roster List */}
-      <div className="space-y-4">
+      {/* Table View */}
+      {viewMode === "table" && (
+        <div className="border-2 border-ink overflow-x-auto">
+          <table className="w-full text-xs font-mono">
+            <thead>
+              <tr className="bg-ink text-paper text-[10px] uppercase tracking-wider">
+                <th className="px-3 py-2 text-left">Nombre</th>
+                <th className="px-3 py-2 text-left">Entidad</th>
+                <th className="px-3 py-2 text-right">Monto</th>
+                <th className="px-3 py-2 text-left">Cierre</th>
+                <th className="px-3 py-2 text-center">Urgencia</th>
+                <th className="px-3 py-2 text-center">Estado</th>
+                <th className="px-3 py-2 text-center">Acc.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedFunds.length === 0 ? (
+                <tr><td colSpan={7} className="text-center py-8 text-ink/40">Sin resultados</td></tr>
+              ) : sortedFunds.map(fund => {
+                const eligibility = computeEligibility(fund);
+                const isApplied = appliedFundIds.includes(fund.id);
+                const isClosed = fund.urgency === "CLOSED" || fund.status === FundStatus.CLOSED;
+                return (
+                  <tr key={fund.id} className={`border-t border-ink/15 hover:bg-paper-dark/40 ${isClosed ? "opacity-50" : ""} ${isApplied ? "bg-accent-green/5" : ""}`}>
+                    <td className="px-3 py-2">
+                      <a href={fund.url} target="_blank" rel="noopener noreferrer" className="font-bold text-ink hover:underline line-clamp-2 block max-w-xs">{fund.name}</a>
+                      {isApplied && <span className="text-[8px] font-black text-accent-green uppercase">✓ postulé</span>}
+                    </td>
+                    <td className="px-3 py-2 text-ink/70 whitespace-nowrap">{fund.entity}</td>
+                    <td className="px-3 py-2 text-right font-black text-alert whitespace-nowrap">{formatCLP(fund.amountNumber)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-ink/70">{fund.deadline}</td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={`px-1.5 py-0.5 text-[8px] font-black border border-ink ${
+                        fund.urgency === "CRITICAL" ? "bg-alert text-white" :
+                        fund.urgency === "HIGH" ? "bg-warning text-ink" :
+                        fund.urgency === "CLOSED" ? "bg-ink/30 text-white" : "bg-paper-dark text-ink"
+                      }`}>{fund.urgency}</span>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={`text-[8px] font-bold px-1.5 py-0.5 border ${eligibility.color}`}>{eligibility.status.slice(0,12)}</span>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <div className="flex items-center gap-1 justify-center">
+                        <button onClick={() => onAddToStack(fund)} className="px-1.5 py-0.5 bg-paper border border-ink text-[8px] font-bold hover:bg-paper-dark cursor-pointer" title="Agregar al stack">+</button>
+                        <button onClick={() => onToggleApplied?.(fund.id)} className={`px-1.5 py-0.5 border text-[8px] font-bold cursor-pointer ${isApplied ? "bg-accent-green text-white border-accent-green" : "border-accent-green/50 text-accent-green hover:bg-accent-green hover:text-white"}`} title="Marcar postulado">✓</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Main Roster List (Cards) */}
+      {viewMode === "cards" && <div className="space-y-4">
         {sortedFunds.length === 0 ? (
           <div className="py-20 text-center border-2 border-dashed border-ink bg-paper-dark/30">
             <SlidersHorizontal className="mx-auto h-12 w-12 text-ink/40 animate-pulse" />
@@ -258,11 +324,12 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
             const isStacked = stackedFunds.some(f => f.id === fund.id);
 
             const isClosed = fund.urgency === "CLOSED" || fund.status === FundStatus.CLOSED;
+            const isApplied = appliedFundIds.includes(fund.id);
             return (
               <div
                 key={fund.id}
                 className={`bg-paper border-2 ${
-                  isClosed ? "border-ink/30 opacity-60" : fund.urgency === "CRITICAL" ? "border-alert" : "border-ink"
+                  isApplied ? "border-accent-green" : isClosed ? "border-ink/30 opacity-60" : fund.urgency === "CRITICAL" ? "border-alert" : "border-ink"
                 } shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-all`}
               >
                 
@@ -280,6 +347,11 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
                         {fund.category}
                       </span>
                       {getUrgencyBadge(fund.urgency, fund.deadline)}
+                      {isApplied && (
+                        <span className="bg-accent-green text-white px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-wider border border-accent-green">
+                          ✓ POSTULÉ
+                        </span>
+                      )}
                     </div>
 
                     <h4 className="font-sans font-black text-lg text-ink tracking-tight truncate">
@@ -445,6 +517,19 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
 
                           <CalendarButton item={fund} className="px-4 py-2 text-[10.5px]" />
 
+                          <button
+                            onClick={() => onToggleApplied?.(fund.id)}
+                            className={`px-3 py-2 text-[10px] font-mono font-bold uppercase border flex items-center gap-1.5 transition-colors cursor-pointer ${
+                              appliedFundIds.includes(fund.id)
+                                ? "bg-accent-green text-white border-accent-green"
+                                : "border-accent-green/50 text-accent-green hover:bg-accent-green hover:text-white"
+                            }`}
+                            title={appliedFundIds.includes(fund.id) ? "Marcar como no postulado" : "Marcar como postulado"}
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            {appliedFundIds.includes(fund.id) ? "✓ Postulé" : "Postulé"}
+                          </button>
+
                           {fund.id.startsWith("custom-") && (
                             <>
                               <button
@@ -477,7 +562,7 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
             );
           })
         )}
-      </div>
+      </div>}
 
     </div>
   );

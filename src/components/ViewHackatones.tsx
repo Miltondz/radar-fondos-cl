@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Search, Trophy, Gift, CheckCircle2, AlertTriangle, KeyRound, ExternalLink, Copy, Check, CalendarDays, Zap, ZapOff, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { Search, Trophy, Gift, CheckCircle2, AlertTriangle, KeyRound, ExternalLink, Copy, Check, CalendarDays, Zap, ZapOff, Archive, ArchiveRestore, Trash2, Send } from "lucide-react";
 import { Fund, FundStatus, MiltonProfile } from "../types";
 import { ALL_FUNDS } from "../data";
 import { formatCLP, getGoogleCalendarUrl } from "../utils";
@@ -21,9 +21,11 @@ interface ViewHackatonesProps {
   archivedFundIds?: string[];
   onDeleteFund?: (id: string) => void;
   onArchiveFund?: (id: string) => void;
+  appliedFundIds?: string[];
+  onToggleApplied?: (id: string) => void;
 }
 
-export default function ViewHackatones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund }: ViewHackatonesProps) {
+export default function ViewHackatones({ profile, onAddToStack, stackedFunds, starredFunds = [], onToggleStar, extraFunds = [], archivedFundIds = [], onDeleteFund, onArchiveFund, appliedFundIds = [], onToggleApplied }: ViewHackatonesProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<"TODOS" | "PREMIO_EFECTIVO" | "TECNOLOGICO" | "CERRADO">("TODOS");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -140,11 +142,12 @@ export default function ViewHackatones({ profile, onAddToStack, stackedFunds, st
             const eligibility = computeEligibility(hack);
             const isStacked = stackedFunds.some(f => f.id === hack.id);
             const isClosed = hack.urgency === "CLOSED" || hack.status === FundStatus.CLOSED;
+            const isApplied = appliedFundIds.includes(hack.id);
 
             return (
               <div
                 key={hack.id}
-                className={`bg-paper border-2 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-colors ${isClosed ? "border-ink/30 opacity-60" : "border-ink hover:border-accent-purple"}`}
+                className={`bg-paper border-2 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-colors ${isApplied ? "border-accent-green" : isClosed ? "border-ink/30 opacity-60" : "border-ink hover:border-accent-purple"}`}
               >
                 
                 {/* Row banner */}
@@ -163,6 +166,11 @@ export default function ViewHackatones({ profile, onAddToStack, stackedFunds, st
                       <span className="bg-paper-dark border border-ink/20 px-2 py-0.5 text-[9.5px] text-ink/70 font-mono font-bold">
                         Cierra: {hack.deadline}
                       </span>
+                      {isApplied && (
+                        <span className="bg-accent-green text-white px-2 py-0.5 font-mono text-[9px] font-black uppercase border border-accent-green">
+                          ✓ PARTICIPÉ
+                        </span>
+                      )}
                     </div>
 
                     <h4 className="font-sans font-black text-lg text-ink tracking-tight truncate flex items-center gap-2">
@@ -347,6 +355,13 @@ export default function ViewHackatones({ profile, onAddToStack, stackedFunds, st
                           </a>
 
                           <CalendarButton item={hack} className="px-4 py-2 text-[10.5px]" />
+
+                          <button
+                            onClick={() => onToggleApplied?.(hack.id)}
+                            className={`px-3 py-2 text-[10px] font-mono font-bold uppercase border flex items-center gap-1.5 transition-colors cursor-pointer ${isApplied ? "bg-accent-green text-white border-accent-green" : "border-accent-green/50 text-accent-green hover:bg-accent-green hover:text-white"}`}
+                          >
+                            <Send className="h-3.5 w-3.5" />{isApplied ? "✓ Participé" : "Participé"}
+                          </button>
 
                           {hack.id.startsWith("custom-") && (
                             <>

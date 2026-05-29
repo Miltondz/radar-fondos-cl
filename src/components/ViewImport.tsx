@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, Trash2, CheckCircle, AlertCircle, Plus, RefreshCcw, Package, Link, Archive, ArchiveRestore, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, Trash2, CheckCircle, AlertCircle, Plus, RefreshCcw, Package, Link, Archive, ArchiveRestore, ChevronDown, ChevronUp, Download } from "lucide-react";
 import OpenAI from "openai";
 import { Fund, FundStatus } from "../types";
 import { ALL_FUNDS } from "../data";
@@ -161,6 +161,11 @@ export default function ViewImport({ customFunds, archivedFundIds = [], onImport
   const [pdfLoading, setPdfLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<FundDraft | null>(null);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkResults, setBulkResults] = useState<FundDraft[]>([]);
+  const [bulkSaved, setBulkSaved] = useState<Set<number>>(new Set());
   const [success, setSuccess] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
@@ -434,42 +439,125 @@ Sé específico y cita datos exactos del documento. Si hay fechas, montos o porc
     setPdfLoading(false);
   };
 
-  const handleSave = () => {
-    if (!draft) return;
+  const draftToFund = (d: FundDraft): Fund => {
     const today = new Date().toISOString().slice(0, 10);
-    const isClosed = draft.deadlineISO ? draft.deadlineISO < today : draft.urgency === "CLOSED";
-    const fund: Fund = {
-      id: `custom-${slugify(draft.name)}-${Date.now().toString(36)}`,
-      name: draft.name,
-      entity: draft.entity,
-      amount: draft.amount,
-      amountNumber: draft.amountNumber,
-      deadline: draft.deadline,
-      deadlineISO: draft.deadlineISO || undefined,
+    const isClosed = d.deadlineISO ? d.deadlineISO < today : d.urgency === "CLOSED";
+    return {
+      id: `custom-${slugify(d.name)}-${Date.now().toString(36)}`,
+      name: d.name,
+      entity: d.entity,
+      amount: d.amount,
+      amountNumber: d.amountNumber,
+      deadline: d.deadline,
+      deadlineISO: d.deadlineISO || undefined,
       status: isClosed ? FundStatus.CLOSED : FundStatus.OPEN,
-      urgency: isClosed ? "CLOSED" : draft.urgency,
-      category: draft.category,
-      description: draft.description,
-      cofinancing: draft.cofinancing || "",
-      requirements: draft.requirements,
+      urgency: isClosed ? "CLOSED" : d.urgency,
+      category: d.category,
+      description: d.description,
+      cofinancing: d.cofinancing || "",
+      requirements: d.requirements,
       eligibilityGenderRequired: false,
       eligibilitySalesRestricted: false,
       SIIRequired: false,
       requiresSpA: false,
-      miltonAplica: draft.eligibilityNotes || "Verificar elegibilidad manualmente",
-      tips: [draft.basesResumen, draft.tips].filter(Boolean).join(" | ").slice(0, 800),
-      url: draft.basesUrl || draft.url,
-      referenceUrlText: draft.basesUrl ? "Ver bases oficiales" : "Más información",
-      type: draft.type,
-      chileCode: draft.chileCode || undefined,
-      organizer: draft.organizer || undefined,
-      address: draft.address || undefined,
+      miltonAplica: d.eligibilityNotes || "Verificar elegibilidad manualmente",
+      tips: [d.basesResumen, d.tips].filter(Boolean).join(" | ").slice(0, 800),
+      url: d.basesUrl || d.url,
+      referenceUrlText: d.basesUrl ? "Ver bases oficiales" : "Más información",
+      type: d.type,
+      chileCode: d.chileCode || undefined,
+      organizer: d.organizer || undefined,
+      address: d.address || undefined,
     };
-    onImportFund(fund);
+  };
+
+  const handleSave = () => {
+    if (!draft) return;
+    onImportFund(draftToFund(draft));
     setSuccess(true);
     setDraft(null);
     setInputText("");
     setTimeout(() => setSuccess(false), 4000);
+  };
+
+  const parseToDraft = (raw: string, sourceUrl = ""): FundDraft | null => {
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.error || !parsed.name) return null;
+      const typeVal = ["financiamiento", "licitacion", "hackaton"].includes(parsed.type)
+        ? (parsed.type as FundType) : "financiamiento";
+      const urgencyVal = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "CLOSED"].includes(parsed.urgency)
+        ? (parsed.urgency as Fund["urgency"]) : "MEDIUM";
+      return {
+        name: String(parsed.name ?? "Sin nombre"),
+        entity: String(parsed.entity ?? "Desconocido"),
+        amount: String(parsed.amount ?? "N/D"),
+        amountNumber: Number(parsed.amountNumber) || 0,
+        deadline: String(parsed.deadline ?? "Por confirmar"),
+        deadlineISO: String(parsed.deadlineISO ?? ""),
+        description: String(parsed.description ?? ""),
+        category: String(parsed.category ?? "Innovation"),
+        type: typeVal,
+        url: sourceUrl || String(parsed.url ?? ""),
+        basesUrl: String(parsed.basesUrl ?? ""),
+        organizer: String(parsed.organizer ?? parsed.entity ?? ""),
+        requirements: Array.isArray(parsed.requirements) ? parsed.requirements.map(String) : [],
+        eligibilityNotes: String(parsed.eligibilityNotes ?? ""),
+        urgency: urgencyVal,
+        basesResumen: String(parsed.basesResumen ?? ""),
+        cofinancing: String(parsed.cofinancing ?? ""),
+        tips: String(parsed.tips ?? ""),
+        chileCode: String(parsed.chileCode ?? ""),
+        address: String(parsed.address ?? ""),
+      };
+    } catch { return null; }
+  };
+
+  const handleBulkAnalyze = async () => {
+    if (!bulkText.trim() || !client) return;
+    const chunks = bulkText.split(/\n?---\n?/).map(c => c.trim()).filter(c => c.length > 30);
+    if (chunks.length === 0) return;
+    setBulkLoading(true);
+    setBulkResults([]);
+    setBulkSaved(new Set());
+    setError(null);
+
+    const accumulated: FundDraft[] = [];
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      let parsed: FundDraft | null = null;
+      for (const model of MODELS) {
+        try {
+          const completion = await client.chat.completions.create({
+            model,
+            messages: [
+              { role: "system", content: EXTRACTION_SYSTEM_PROMPT },
+              { role: "user", content: `Analiza este contenido y extrae la convocatoria:\n\n${chunk.slice(0, 4000)}` },
+            ],
+            temperature: 0.1,
+            max_tokens: 1500,
+          });
+          const raw = completion.choices[0]?.message?.content ?? "";
+          parsed = parseToDraft(raw);
+          if (parsed) break;
+        } catch { /* try next model */ }
+      }
+      if (parsed) {
+        accumulated.push(parsed);
+        setBulkResults([...accumulated]);
+      }
+      if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 600));
+    }
+    setBulkLoading(false);
+  };
+
+  const handleBulkSave = (idx: number) => {
+    const d = bulkResults[idx];
+    if (!d) return;
+    onImportFund(draftToFund(d));
+    setBulkSaved(prev => new Set([...prev, idx]));
   };
 
   return (
@@ -478,12 +566,73 @@ Sé específico y cita datos exactos del documento. Si hay fechas, montos o porc
 
       {/* Step 1: Input */}
       <section className="border-2 border-ink bg-paper shadow-[4px_4px_0px_#1a1a1a] p-6 space-y-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="bg-ink text-paper font-mono font-black text-xs px-2 py-0.5 select-none">1</span>
           <h2 className="font-display font-black text-base uppercase tracking-wide text-ink">Pega el contenido a analizar</h2>
+          <div className="ml-auto flex items-center gap-1 border-2 border-ink p-0.5">
+            <button
+              onClick={() => setBulkMode(false)}
+              className={`px-3 py-1 font-mono font-black text-[10px] uppercase tracking-wide transition-colors cursor-pointer select-none ${!bulkMode ? "bg-ink text-paper" : "text-ink/50 hover:text-ink"}`}
+            >
+              Individual
+            </button>
+            <button
+              onClick={() => setBulkMode(true)}
+              className={`px-3 py-1 font-mono font-black text-[10px] uppercase tracking-wide transition-colors cursor-pointer select-none ${bulkMode ? "bg-ink text-paper" : "text-ink/50 hover:text-ink"}`}
+            >
+              Masivo
+            </button>
+          </div>
         </div>
+        {/* Bulk mode UI */}
+        {bulkMode && (
+          <div className="space-y-3">
+            <p className="text-[10px] font-mono text-ink/50">
+              Pega varias convocatorias separadas por <code className="bg-paper-dark border border-ink/30 px-1">---</code> (tres guiones en línea propia). La IA extrae cada una por separado.
+            </p>
+            <textarea
+              className="w-full h-64 border-2 border-ink bg-paper-dark font-mono text-xs text-ink p-3 resize-y focus:outline-none focus:ring-2 focus:ring-ink/40 placeholder:text-ink/35"
+              placeholder={`CORFO Capital Semilla 2026 — hasta $20M CLP, cierre 30 junio...
+
+---
+
+Startup Chile SCALE programa aceleración internacional, postulaciones abiertas hasta 15 julio 2026...
+
+---
+
+Licitación MP-2026-123 MINSAL equipamiento hospitalario, cierre 5 junio 2026...`}
+              value={bulkText}
+              onChange={e => setBulkText(e.target.value)}
+              disabled={bulkLoading}
+            />
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={handleBulkAnalyze}
+                disabled={!bulkText.trim() || bulkLoading || !client}
+                className="flex items-center gap-2 bg-ink text-paper px-5 py-2.5 font-mono font-black text-xs uppercase tracking-wide border-2 border-ink shadow-[3px_3px_0px_rgba(0,0,0,0.4)] hover:bg-ink/85 active:translate-y-[1px] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer select-none"
+              >
+                {bulkLoading ? (
+                  <><RefreshCcw className="h-3.5 w-3.5 animate-spin" /> Analizando {bulkResults.length} de {bulkText.split(/\n?---\n?/).filter(c => c.trim().length > 30).length}…</>
+                ) : (
+                  <><Sparkles className="h-3.5 w-3.5" /> Analizar todo</>
+                )}
+              </button>
+              {bulkText.trim() && (
+                <span className="text-[10px] font-mono text-ink/40">
+                  {bulkText.split(/\n?---\n?/).filter(c => c.trim().length > 30).length} convocatorias detectadas
+                </span>
+              )}
+              {!client && (
+                <span className="text-xs font-mono text-alert font-bold">
+                  ⚠ Configura VITE_OPENROUTER_API_KEY en .env.local para usar esta función.
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* URL fetch */}
-        <div className="space-y-1.5">
+        {!bulkMode && <div className="space-y-1.5">
           <label className="text-[10px] font-mono font-bold uppercase text-ink/50 tracking-wider">
             Opción A — Pegar URL de página web
           </label>
@@ -535,48 +684,52 @@ Sé específico y cita datos exactos del documento. Si hay fechas, montos o porc
           <p className="text-[10px] font-mono text-ink/35">
             Perplexity ON: más confiable para cualquier URL. OFF: proxies gratis primero. Instagram/Facebook requieren copiar texto manualmente.
           </p>
-        </div>
+        </div>}
 
-        <div className="flex items-center gap-3 text-[10px] font-mono text-ink/35 uppercase tracking-widest">
-          <div className="flex-1 h-px bg-ink/15" />
-          <span>O</span>
-          <div className="flex-1 h-px bg-ink/15" />
-        </div>
+        {!bulkMode && (
+          <>
+            <div className="flex items-center gap-3 text-[10px] font-mono text-ink/35 uppercase tracking-widest">
+              <div className="flex-1 h-px bg-ink/15" />
+              <span>O</span>
+              <div className="flex-1 h-px bg-ink/15" />
+            </div>
 
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-mono font-bold uppercase text-ink/50 tracking-wider">
-            Opción B — Pegar texto copiado
-          </label>
-        </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono font-bold uppercase text-ink/50 tracking-wider">
+                Opción B — Pegar texto copiado
+              </label>
+            </div>
 
-        <textarea
-          className="w-full h-44 border-2 border-ink bg-paper-dark font-mono text-xs text-ink p-3 resize-y focus:outline-none focus:ring-2 focus:ring-ink/40 placeholder:text-ink/35"
-          placeholder={`Ejemplos de texto a pegar:\n\n• "CORFO abre convocatoria Capital Semilla hasta $20M CLP, cierre 30 junio 2026. Requisitos: startup tecnológica, equipo de 2+ personas..."\n\n• Texto completo de publicación en LinkedIn de Startup Chile\n\n• Descripción de licitación copiada de Mercado Público`}
-          value={inputText}
-          onChange={e => setInputText(e.target.value)}
-          disabled={loading}
-        />
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
-            onClick={handleAnalyze}
-            disabled={!inputText.trim() || loading || !client}
-            className="flex items-center gap-2 bg-ink text-paper px-5 py-2.5 font-mono font-black text-xs uppercase tracking-wide border-2 border-ink shadow-[3px_3px_0px_rgba(0,0,0,0.4)] hover:bg-ink/85 active:translate-y-[1px] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer select-none"
-          >
-            {loading ? (
-              <><RefreshCcw className="h-3.5 w-3.5 animate-spin" /> Analizando…</>
-            ) : (
-              <><Sparkles className="h-3.5 w-3.5" /> Analizar con IA</>
-            )}
-          </button>
-          {inputText.trim() && (
-            <span className="text-[10px] font-mono text-ink/40">{inputText.length} caracteres</span>
-          )}
-          {!client && (
-            <span className="text-xs font-mono text-alert font-bold">
-              ⚠ Configura VITE_OPENROUTER_API_KEY en .env.local para usar esta función.
-            </span>
-          )}
-        </div>
+            <textarea
+              className="w-full h-44 border-2 border-ink bg-paper-dark font-mono text-xs text-ink p-3 resize-y focus:outline-none focus:ring-2 focus:ring-ink/40 placeholder:text-ink/35"
+              placeholder={`Ejemplos de texto a pegar:\n\n• "CORFO abre convocatoria Capital Semilla hasta $20M CLP, cierre 30 junio 2026. Requisitos: startup tecnológica, equipo de 2+ personas..."\n\n• Texto completo de publicación en LinkedIn de Startup Chile\n\n• Descripción de licitación copiada de Mercado Público`}
+              value={inputText}
+              onChange={e => setInputText(e.target.value)}
+              disabled={loading}
+            />
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={handleAnalyze}
+                disabled={!inputText.trim() || loading || !client}
+                className="flex items-center gap-2 bg-ink text-paper px-5 py-2.5 font-mono font-black text-xs uppercase tracking-wide border-2 border-ink shadow-[3px_3px_0px_rgba(0,0,0,0.4)] hover:bg-ink/85 active:translate-y-[1px] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer select-none"
+              >
+                {loading ? (
+                  <><RefreshCcw className="h-3.5 w-3.5 animate-spin" /> Analizando…</>
+                ) : (
+                  <><Sparkles className="h-3.5 w-3.5" /> Analizar con IA</>
+                )}
+              </button>
+              {inputText.trim() && (
+                <span className="text-[10px] font-mono text-ink/40">{inputText.length} caracteres</span>
+              )}
+              {!client && (
+                <span className="text-xs font-mono text-alert font-bold">
+                  ⚠ Configura VITE_OPENROUTER_API_KEY en .env.local para usar esta función.
+                </span>
+              )}
+            </div>
+          </>
+        )}
       </section>
 
       {/* Error */}
@@ -612,6 +765,88 @@ Sé específico y cita datos exactos del documento. Si hay fechas, montos o porc
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Bulk results */}
+      {bulkResults.length > 0 && (
+        <section className="border-2 border-ink bg-paper shadow-[4px_4px_0px_#1a1a1a] p-6 space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="bg-ink text-paper font-mono font-black text-xs px-2 py-0.5 select-none">2</span>
+            <h2 className="font-display font-black text-base uppercase tracking-wide text-ink">
+              Resultados masivos ({bulkResults.length})
+            </h2>
+            {bulkLoading && (
+              <span className="flex items-center gap-1.5 text-[10px] font-mono text-ink/50 animate-pulse">
+                <RefreshCcw className="h-3 w-3 animate-spin" /> Analizando…
+              </span>
+            )}
+            <span className="ml-auto text-[10px] font-mono text-accent-green font-bold">
+              {bulkSaved.size} guardadas
+            </span>
+          </div>
+          <div className="space-y-3">
+            {bulkResults.map((item, idx) => (
+              <div
+                key={idx}
+                className={`border p-4 space-y-2 transition-opacity ${bulkSaved.has(idx) ? "border-accent-green/40 bg-accent-green/5 opacity-60" : "border-ink/25 bg-paper-dark"}`}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`px-2 py-0.5 text-[9px] font-mono font-bold border border-ink ${URGENCY_COLORS[item.urgency]}`}>
+                    {item.urgency}
+                  </span>
+                  <span className="text-[9px] font-mono text-ink/50 border border-ink/25 px-1.5 py-0.5 bg-paper">
+                    {TYPE_LABELS[item.type]}
+                  </span>
+                  {bulkSaved.has(idx) && (
+                    <span className="text-[9px] font-mono font-bold text-accent-green uppercase tracking-wider">✓ GUARDADA</span>
+                  )}
+                </div>
+                <p className="font-display font-bold text-sm text-ink leading-tight">{item.name}</p>
+                <p className="text-[10px] font-mono text-ink/55">
+                  {item.entity} · {item.amount} · cierre: {item.deadline}
+                </p>
+                {item.description && (
+                  <p className="text-[10px] font-mono text-ink/70 leading-relaxed line-clamp-2">{item.description}</p>
+                )}
+                {!bulkSaved.has(idx) && (
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => handleBulkSave(idx)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green text-white border-2 border-ink font-mono font-black text-[10px] uppercase tracking-wide hover:opacity-90 active:translate-y-[1px] transition-all cursor-pointer select-none shadow-[2px_2px_0px_rgba(0,0,0,0.3)]"
+                    >
+                      <Plus className="h-3 w-3" /> Guardar
+                    </button>
+                    <button
+                      onClick={() => setBulkResults(prev => prev.filter((_, i) => i !== idx))}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-ink/30 text-ink/40 hover:text-ink hover:border-ink font-mono text-[10px] font-bold uppercase transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="h-3 w-3" /> Descartar
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {!bulkLoading && bulkResults.length > 0 && (
+            <div className="pt-2 border-t border-ink/20 flex gap-3">
+              <button
+                onClick={() => {
+                  bulkResults.forEach((_, idx) => { if (!bulkSaved.has(idx)) handleBulkSave(idx); });
+                }}
+                disabled={bulkResults.every((_, idx) => bulkSaved.has(idx))}
+                className="flex items-center gap-2 bg-ink text-paper px-4 py-2 font-mono font-black text-xs uppercase tracking-wide border-2 border-ink hover:bg-ink/85 active:translate-y-[1px] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer select-none shadow-[2px_2px_0px_rgba(0,0,0,0.3)]"
+              >
+                <Plus className="h-3.5 w-3.5" /> Guardar todas
+              </button>
+              <button
+                onClick={() => { setBulkResults([]); setBulkSaved(new Set()); }}
+                className="flex items-center gap-2 px-4 py-2 border border-ink/30 text-ink/50 hover:text-ink hover:border-ink font-mono text-xs font-bold uppercase transition-colors cursor-pointer"
+              >
+                Limpiar
+              </button>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Step 2: Preview + Edit */}
       <AnimatePresence>
@@ -892,8 +1127,23 @@ Sé específico y cita datos exactos del documento. Si hay fechas, montos o porc
                 Convocatorias importadas ({activeFunds.length})
               </h2>
               <button
+                onClick={() => {
+                  const json = JSON.stringify(customFunds, null, 2);
+                  const blob = new Blob([json], { type: "application/json" });
+                  const a = document.createElement("a");
+                  a.href = URL.createObjectURL(blob);
+                  a.download = `radar-fondos-importados-${new Date().toISOString().slice(0,10)}.json`;
+                  a.click();
+                  URL.revokeObjectURL(a.href);
+                }}
+                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 border border-ink/40 text-ink/60 hover:bg-paper-dark hover:text-ink font-mono text-[10px] font-bold uppercase transition-colors cursor-pointer"
+                title="Exportar como JSON"
+              >
+                <Download className="h-3 w-3" /> Exportar
+              </button>
+              <button
                 onClick={() => { if (confirm(`¿Borrar las ${customFunds.length} convocatorias importadas?`)) customFunds.forEach(f => onDeleteCustomFund(f.id)); }}
-                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 border border-alert/50 text-alert hover:bg-alert hover:text-white font-mono text-[10px] font-bold uppercase transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-alert/50 text-alert hover:bg-alert hover:text-white font-mono text-[10px] font-bold uppercase transition-colors cursor-pointer"
               >
                 <Trash2 className="h-3 w-3" /> Borrar todo
               </button>
