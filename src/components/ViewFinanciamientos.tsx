@@ -354,11 +354,11 @@ export default function ViewFinanciamientos({ profile, onAddToStack, stackedFund
                       )}
                     </div>
 
-                    <h4 className="font-sans font-black text-lg text-ink tracking-tight truncate">
+                    <h4 className="font-sans font-black text-base sm:text-lg text-ink tracking-tight line-clamp-2">
                       {fund.name}
                     </h4>
 
-                    <p className="text-xs font-serif text-ink/80 truncate max-w-3xl">
+                    <p className="text-xs font-serif text-ink/80 line-clamp-2">
                       {fund.description}
                     </p>
                   </div>

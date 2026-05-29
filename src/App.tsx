@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Building2, Calendar, ClipboardCheck, Sparkles, Layers, ListTodo,
@@ -318,15 +318,15 @@ export default function App() {
       <Header currentDate={new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })} criticalCount={criticalCount} urgentFunds={urgentFunds} />
 
       {/* Primary Responsive Workspace */}
-      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 flex-1 flex flex-col gap-6">
+      <main className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-8 lg:px-8 flex-1 flex flex-col gap-4 sm:gap-6">
         
         {/* Breadcrumb path & Bright/Dark theme switchers */}
-        <div className="flex items-center justify-between border-b border-ink/15 pb-3">
-          <div className="flex items-center gap-1.5 font-mono text-[10px] text-ink/65 uppercase tracking-wider">
-            <span>Milton Workspace</span>
-            <span>/</span>
-            <span className="font-bold text-ink">
-              {activeTab === "landing" ? "Inicio de Reporte" : activeTab === "financiamientos" ? "Fomento y Subsidios" : activeTab === "licitaciones" ? "Tender y Licitaciones" : activeTab === "hackatones" ? "Retos Avanzados" : activeTab === "agenda" ? "Agenda y Timeline" : activeTab === "ia" ? "Asesor IA Gemini" : activeTab === "configuracion" ? "Configuración" : activeTab === "importar" ? "Importar Convocatoria" : "Plan de Acción"}
+        <div className="flex items-center justify-between border-b border-ink/15 pb-2 sm:pb-3 gap-2">
+          <div className="flex items-center gap-1.5 font-mono text-[10px] text-ink/65 uppercase tracking-wider min-w-0">
+            <span className="hidden sm:inline shrink-0">Milton Workspace</span>
+            <span className="hidden sm:inline shrink-0">/</span>
+            <span className="font-bold text-ink truncate">
+              {activeTab === "landing" ? "Inicio" : activeTab === "financiamientos" ? "Subsidios" : activeTab === "licitaciones" ? "Licitaciones" : activeTab === "hackatones" ? "Hackatones" : activeTab === "agenda" ? "Agenda" : activeTab === "ia" ? "Asesor IA" : activeTab === "configuracion" ? "Config" : activeTab === "importar" ? "Importar" : "Plan"}
             </span>
           </div>
 
@@ -334,29 +334,29 @@ export default function App() {
           {/* Mi Empresa button */}
           <button
             onClick={() => setShowOnboarding(true)}
-            className="flex items-center gap-2 px-3 py-1.5 border border-ink bg-paper hover:bg-paper-dark font-mono text-[10px] font-black uppercase transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-y-[1px] select-none cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 border border-ink bg-paper hover:bg-paper-dark font-mono text-[10px] font-black uppercase transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-y-[1px] select-none cursor-pointer max-w-[120px] sm:max-w-none"
             title="Configurar perfil de empresa"
           >
-            <User className="h-3 w-3" />
-            {profile.companyName ? profile.companyName : "Mi Empresa"}
+            <User className="h-3 w-3 shrink-0" />
+            <span className="truncate hidden xs:inline sm:inline">{profile.companyName ? profile.companyName : "Mi Empresa"}</span>
           </button>
 
           {/* Toggle Theme Control */}
           <button
             onClick={() => setTheme(prev => prev === "light" ? "dark" : "light")}
-            className="flex items-center gap-2 px-3 py-1.5 border border-ink bg-paper hover:bg-paper-dark font-mono text-[10px] font-black uppercase transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-y-[1px] select-none cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 border border-ink bg-paper hover:bg-paper-dark font-mono text-[10px] font-black uppercase transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-y-[1px] select-none cursor-pointer"
             id="theme-toggle-trigger"
             title="Cambiar entre modo Claro (Marfil) y Oscuro (Negro Slate)"
           >
             {theme === "light" ? (
               <>
-                <Moon className="h-3 w-3 text-accent-purple" />
-                <span>Modo Oscuro</span>
+                <Moon className="h-3 w-3 text-accent-purple shrink-0" />
+                <span className="hidden sm:inline">Modo Oscuro</span>
               </>
             ) : (
               <>
-                <Sun className="h-3 w-3 text-warning" />
-                <span>Modo Claro</span>
+                <Sun className="h-3 w-3 text-warning shrink-0" />
+                <span className="hidden sm:inline">Modo Claro</span>
               </>
             )}
           </button>
@@ -364,94 +364,100 @@ export default function App() {
         </div>
 
         {/* 4-Pillar Subpages Navigation Track */}
-        <div className="flex border-2 border-ink bg-paper shadow-[4px_4px_0px_#1a1a1a] overflow-x-auto" id="radar-hub-toptabs" style={{ scrollbarWidth: "none" }}>
-          <button 
+        <div className="flex border-2 border-ink bg-paper shadow-[4px_4px_0px_#1a1a1a] overflow-x-auto" id="radar-hub-toptabs" style={{ scrollbarWidth: "none" } as React.CSSProperties}>
+          <button
             onClick={() => setActiveTab("landing")}
-            className={`flex-1 min-w-[120px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
+            className={`flex-1 min-w-[44px] sm:min-w-[120px] py-3 px-2 sm:px-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
               activeTab === "landing" ? "bg-ink text-paper font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
             }`}
           >
-            📋 Resumen e Inicio
+            📋<span className="hidden sm:inline"> Inicio</span>
           </button>
-          
-          <button 
+
+          <button
             onClick={() => setActiveTab("financiamientos")}
-            className={`flex-1 min-w-[140px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
+            className={`flex-1 min-w-[44px] sm:min-w-[130px] py-3 px-2 sm:px-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
               activeTab === "financiamientos" ? "bg-accent-green text-white font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
             }`}
           >
-            💰 Subsidios ({countFinanciamientos})
+            💰<span className="hidden sm:inline"> Subsidios</span>
+            <span className="hidden sm:inline"> ({countFinanciamientos})</span>
+            <span className="sm:hidden text-[9px]"> {countFinanciamientos}</span>
           </button>
-          
-          <button 
+
+          <button
             onClick={() => setActiveTab("licitaciones")}
-            className={`flex-1 min-w-[140px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
+            className={`flex-1 min-w-[44px] sm:min-w-[130px] py-3 px-2 sm:px-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
               activeTab === "licitaciones" ? "bg-accent-blue text-white font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
             }`}
           >
-            🏛️ Licitaciones ({countLicitaciones})
+            🏛️<span className="hidden sm:inline"> Licitaciones</span>
+            <span className="hidden sm:inline"> ({countLicitaciones})</span>
+            <span className="sm:hidden text-[9px]"> {countLicitaciones}</span>
           </button>
-          
-          <button 
+
+          <button
             onClick={() => setActiveTab("hackatones")}
-            className={`flex-1 min-w-[140px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
+            className={`flex-1 min-w-[44px] sm:min-w-[130px] py-3 px-2 sm:px-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
               activeTab === "hackatones" ? "bg-accent-purple text-white font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
             }`}
           >
-            ⚡ Hackatones ({countHackatones})
+            ⚡<span className="hidden sm:inline"> Hackatones</span>
+            <span className="hidden sm:inline"> ({countHackatones})</span>
+            <span className="sm:hidden text-[9px]"> {countHackatones}</span>
           </button>
-          
+
           <button
             onClick={() => setActiveTab("roadmap")}
-            className={`flex-1 min-w-[150px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
+            className={`flex-1 min-w-[44px] sm:min-w-[130px] py-3 px-2 sm:px-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
               activeTab === "roadmap" ? "bg-ink text-paper font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
             }`}
           >
-            🎯 Plan y Requisitos
+            🎯<span className="hidden sm:inline"> Plan</span>
           </button>
 
           <button
             onClick={() => setActiveTab("agenda")}
-            className={`flex-1 min-w-[130px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
+            className={`flex-1 min-w-[44px] sm:min-w-[110px] py-3 px-2 sm:px-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
               activeTab === "agenda" ? "bg-accent-blue text-white font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
             }`}
           >
-            📅 Agenda
+            📅<span className="hidden sm:inline"> Agenda</span>
           </button>
 
           <button
             onClick={() => setActiveTab("ia")}
-            className={`flex-1 min-w-[120px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
+            className={`flex-1 min-w-[44px] sm:min-w-[100px] py-3 px-2 sm:px-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
               activeTab === "ia" ? "bg-accent-purple text-white font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
             }`}
           >
-            🤖 Asesor IA
+            🤖<span className="hidden sm:inline"> IA</span>
           </button>
 
           <button
             onClick={() => setActiveTab("configuracion")}
-            className={`flex-1 min-w-[130px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
+            className={`flex-1 min-w-[44px] sm:min-w-[110px] py-3 px-2 sm:px-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
               activeTab === "configuracion" ? "bg-ink text-paper font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
             }`}
           >
-            ⚙️ Configuración
+            ⚙️<span className="hidden sm:inline"> Config</span>
           </button>
 
           <button
             onClick={() => setActiveTab("importar")}
-            className={`flex-1 min-w-[130px] py-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
+            className={`flex-1 min-w-[44px] sm:min-w-[120px] py-3 px-2 sm:px-3 text-center text-[10.5px] font-mono font-black uppercase tracking-wider transition-all border-r border-ink/25 last:border-0 cursor-pointer ${
               activeTab === "importar" ? "bg-accent-green text-white font-extrabold" : "bg-paper hover:bg-paper-dark text-ink"
             }`}
           >
-            <span className="inline-flex items-center gap-1.5">
-              📥 Importar
+            <span className="inline-flex items-center gap-1 justify-center">
+              📥<span className="hidden sm:inline"> Importar</span>
               {customFunds.length > 0 && (
-                <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-none text-[9px] font-black ${activeTab === "importar" ? "bg-white text-accent-green" : "bg-accent-green text-white"}`}>
+                <span className={`inline-flex items-center justify-center min-w-[16px] h-[16px] px-0.5 rounded-none text-[9px] font-black ${activeTab === "importar" ? "bg-white text-accent-green" : "bg-accent-green text-white"}`}>
                   {customFunds.filter(f => !archivedFundIds.includes(f.id)).length}
                 </span>
               )}
-              {customFunds.filter(f => f.urgency === "CLOSED" || f.deadlineISO && f.deadlineISO < new Date().toISOString().slice(0,10)).length > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-black bg-alert text-white" title="Fondos expirados">
+              {customFunds.filter(f => f.urgency === "CLOSED" || (f.deadlineISO && f.deadlineISO < new Date().toISOString().slice(0,10))).length > 0 && (
+                <span className="hidden sm:inline-flex items-center justify-center min-w-[16px] h-[16px] px-0.5 text-[9px] font-black bg-alert text-white" title="Fondos expirados">
                   {customFunds.filter(f => f.urgency === "CLOSED" || (f.deadlineISO && f.deadlineISO < new Date().toISOString().slice(0,10))).length}🔒
                 </span>
               )}
@@ -461,16 +467,16 @@ export default function App() {
 
         {/* Persistent Quick Import URL Bar */}
         <div className="flex items-center gap-0 border-2 border-t-0 border-ink bg-paper-dark shadow-[4px_2px_0px_#1a1a1a]">
-          <div className="flex items-center gap-1.5 shrink-0 px-3 py-2.5 border-r border-ink/25 bg-ink/5">
-            <Link className="h-3 w-3 text-ink/60" />
-            <span className="font-mono font-black text-[9.5px] uppercase tracking-widest text-ink/70 select-none whitespace-nowrap">
+          <div className="flex items-center gap-1.5 shrink-0 px-2.5 sm:px-3 py-2.5 border-r border-ink/25 bg-ink/5">
+            <Link className="h-3 w-3 text-ink/60 shrink-0" />
+            <span className="hidden sm:block font-mono font-black text-[9.5px] uppercase tracking-widest text-ink/70 select-none whitespace-nowrap">
               Añadir URL
             </span>
           </div>
           <input
             type="url"
             className="flex-1 min-w-0 bg-transparent font-mono text-xs text-ink px-3 py-2.5 focus:outline-none placeholder:text-ink/30"
-            placeholder="Pega URL de CORFO, Mercado Público, SERCOTEC, LinkedIn… y presiona Enter"
+            placeholder="Pega URL de CORFO, Mercado Público… y Enter"
             value={quickImportBarInput}
             onChange={e => setQuickImportBarInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") handleQuickImportSubmit(); }}
@@ -478,10 +484,10 @@ export default function App() {
           <button
             onClick={handleQuickImportSubmit}
             disabled={!quickImportBarInput.trim()}
-            className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 font-mono font-black text-[10px] uppercase tracking-wide bg-ink text-paper hover:bg-ink/85 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer select-none border-l border-ink/25"
+            className="shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-2.5 font-mono font-black text-[10px] uppercase tracking-wide bg-ink text-paper hover:bg-ink/85 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer select-none border-l border-ink/25"
           >
-            <Sparkles className="h-3 w-3" />
-            Analizar
+            <Sparkles className="h-3 w-3 shrink-0" />
+            <span className="hidden sm:inline">Analizar</span>
           </button>
         </div>
 

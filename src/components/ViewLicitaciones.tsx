@@ -183,7 +183,7 @@ export default function ViewLicitaciones({ profile, onAddToStack, stackedFunds, 
                       )}
                     </div>
 
-                    <h4 className="font-sans font-black text-lg text-ink tracking-tight truncate flex items-center gap-2">
+                    <h4 className="font-sans font-black text-base sm:text-lg text-ink tracking-tight line-clamp-2 flex items-center gap-2 flex-wrap">
                       {lic.name}
                     </h4>
 

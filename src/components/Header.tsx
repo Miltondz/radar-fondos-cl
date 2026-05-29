@@ -45,11 +45,11 @@ export default function Header({ currentDate, criticalCount, urgentFunds = [] }:
               </span>
             </div>
 
-            <h1 className="font-display text-5xl font-black tracking-tight text-ink sm:text-6xl uppercase leading-none">
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-ink uppercase leading-none">
               RADAR <span className="font-serif italic text-alert font-medium lowercase">fondos cl</span>
             </h1>
             
-            <p className="mt-3 text-lg font-serif italic text-ink/80 leading-relaxed max-w-xl">
+            <p className="mt-3 text-sm sm:text-lg font-serif italic text-ink/80 leading-relaxed max-w-xl">
               Reporte Técnico sobre Financiamiento Gubernamental y Fomento de Startups Tecnológicas en Chile.
               Calibrado con convocatorias de <span className="font-bold underline decoration-1 text-ink">CORFO</span>, <span className="font-bold underline decoration-1 text-ink">SERCOTEC</span> & <span className="font-bold underline decoration-1 text-ink">Startup Chile</span>.
             </p>
@@ -67,7 +67,7 @@ export default function Header({ currentDate, criticalCount, urgentFunds = [] }:
           </div>
 
           {/* Editorial Architectural Radar Drafting Screen */}
-          <div className="flex justify-center md:justify-end">
+          <div className="hidden sm:flex justify-center md:justify-end">
             <div className="relative h-56 w-56 sm:h-64 sm:w-64 border-2 border-ink bg-white dark:bg-paper flex items-center justify-center overflow-hidden shadow-[4px_4px_0px_#1a1a1a]">
               {/* Target concentric drawing lines */}
               <div className="absolute h-[80%] w-[80%] rounded-full border border-ink/20 dark:border-ink/40 pointer-events-none" />
