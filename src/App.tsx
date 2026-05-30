@@ -263,16 +263,27 @@ export default function App() {
       f.deadlineISO && f.deadlineISO >= today
     );
     if (urgentStack.length === 0) return;
-    const requestAndNotify = () => {
-      urgentStack.forEach(f => {
-        const daysLeft = Math.ceil((new Date(f.deadlineISO!).getTime() - Date.now()) / 86400000);
-        new Notification(`⏰ ${f.name}`, {
-          body: `Cierra en ${daysLeft} día${daysLeft === 1 ? "" : "s"} (${f.deadline}) — ${f.entity}`,
-          icon: "/favicon.ico",
-          tag: f.id,
-        });
-      });
+    const notify = async (f: Fund) => {
+      const daysLeft = Math.ceil((new Date(f.deadlineISO!).getTime() - Date.now()) / 86400000);
+      const title = `⏰ ${f.name}`;
+      const opts: NotificationOptions = {
+        body: `Cierra en ${daysLeft} día${daysLeft === 1 ? "" : "s"} (${f.deadline}) — ${f.entity}`,
+        icon: "/favicon.ico",
+        tag: f.id,
+      };
+      try {
+        // On Android with active SW, new Notification() throws — use SW instead
+        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+          const reg = await navigator.serviceWorker.ready;
+          await reg.showNotification(title, opts);
+        } else {
+          new Notification(title, opts);
+        }
+      } catch (e) {
+        console.warn("Notification skipped:", e);
+      }
     };
+    const requestAndNotify = () => { urgentStack.forEach(notify); };
     if (Notification.permission === "granted") {
       requestAndNotify();
     } else if (Notification.permission !== "denied") {
