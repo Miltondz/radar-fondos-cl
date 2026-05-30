@@ -27,6 +27,9 @@ export default defineConfig(() => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,svg,png,woff2}'],
+          // Don't claim existing open pages — prevents blank-screen on mobile
+          // when SW first activates mid-session. New SW takes effect on next load.
+          clientsClaim: false,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

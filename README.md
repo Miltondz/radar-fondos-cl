@@ -15,8 +15,8 @@ Plataforma de inteligencia estratégica para startups tecnológicas chilenas. Ce
 
 | Módulo | Descripción |
 |--------|-------------|
-| 📋 Resumen | Dashboard con portafolio activo, comparación y monto total de stack |
-| 💰 Subsidios | Filtrado por perfil (socia, SpA, SII, ventas), vista tabla / tarjetas, filtro CERRADO |
+| 📋 Resumen | Dashboard con portafolio activo, comparación, monto total y historial reciente |
+| 💰 Subsidios | Filtrado por perfil (socia, SpA, SII, ventas), vista tabla / tarjetas, filtro "Solo elegibles" |
 | 🏛️ Licitaciones | Oportunidades de Mercado Público / ChileCompra con filtro CERRADO |
 | ⚡ Hackatones | Retos con premios y validación de startup con filtro CERRADO |
 | 📥 Importar | Individual o **modo masivo** (N convocatorias separadas por `---`) |
@@ -27,7 +27,15 @@ Plataforma de inteligencia estratégica para startups tecnológicas chilenas. Ce
 
 ## Mejoras UX implementadas
 
-- **Búsqueda global** — barra de búsqueda transversal en todos los fondos/licitaciones/hackatones con navegación directa a la sección
+- **PWA (Progressive Web App)** — instalable en móvil/escritorio, caché offline con Workbox, `clientsClaim: false` para evitar pantalla blanca al activar el SW
+- **Historial reciente** — últimas 6 convocatorias expandidas, visible en tab Inicio con navegación directa
+- **Exportar PDF** — botón "Exportar Portafolio PDF" en Inicio (`window.print()`) con CSS de impresión dedicado
+- **Notas por fondo** — textarea por convocatoria, persiste en localStorage, disponible en Subsidios / Licitaciones / Hackatones
+- **Comparador** — selección hasta 3 fondos, barra flotante inferior, modal comparación con campos clave lado a lado
+- **Filtro "Solo elegibles"** — toggle en Subsidios que oculta fondos con score de elegibilidad < 5 según perfil activo
+- **Countdown de días** — `daysUntil()` en utils, muestra días restantes al cierre en cards expandidas
+- **Deep link `?fund=<id>`** — URL que abre directamente un fondo expandido en su tab correspondiente
+- **Búsqueda global** — barra de búsqueda transversal con navegación directa a la sección (Ctrl+K)
 - **Tracking de postulación** — botón "Postulé" / "Participé" por fondo, persiste en localStorage con fecha
 - **Vista tabla** — toggle tarjetas ↔ tabla en Subsidios con columnas ordenables
 - **Importación masiva** — modo "Masivo" en tab Importar: pega N convocatorias separadas por `---`, la IA extrae cada una en paralelo con opción de guardar/descartar individual o "Guardar todas"
@@ -35,7 +43,7 @@ Plataforma de inteligencia estratégica para startups tecnológicas chilenas. Ce
 - **Archivar / Borrar** — registros importados archivables (ocultos de vistas, recuperables) o eliminables desde ViewImport y cards expandidos
 - **Auto-detección CERRADO** — fondos importados con `deadlineISO` pasada se marcan automáticamente como `urgency: "CLOSED"`
 - **Exportar JSON** — descarga de todas las convocatorias importadas como `.json`
-- **Mobile-first** — tabs compactos en móvil (emoji + número), header adaptativo, radar oculto en xs, padding y tipografía ajustados por breakpoint
+- **Mobile-first** — tabs compactos en móvil (emoji + número), header adaptativo, padding y tipografía ajustados por breakpoint
 
 ## Asesor IA — Prompts configurables
 
@@ -121,7 +129,17 @@ npm run clean    # Elimina dist/ y server.js
 
 ## Agregar / actualizar datos
 
-Todo el contenido (fondos, licitaciones, hackatones, roadmap) está en **`src/data.ts`**. No hay backend ni API calls para datos — editar ese archivo es suficiente.
+Los fondos están divididos en tres archivos JSON en `src/data/`:
+
+| Archivo | Tipo |
+|---------|------|
+| `src/data/financiamientos.json` | Subsidios CORFO / SERCOTEC / Startup Chile |
+| `src/data/licitaciones.json` | Mercado Público / ChileCompra |
+| `src/data/hackatones.json` | Hackatones corporativos y concursos |
+
+Editar el JSON correspondiente y commitear. `src/data.ts` los importa y exporta como `ALL_FUNDS`. El esquema de campos está en `src/data/SCHEMA.md`.
+
+Roadmap y requisitos de documentos siguen en `src/data.ts`.
 
 ## Arquitectura
 
@@ -168,4 +186,7 @@ radar-fondos-extension.zip  # Extensión empaquetada lista para instalar
 | `milton_radar_custom_funds` | Convocatorias importadas por el usuario |
 | `milton_radar_archived_ids` | IDs de fondos archivados (ocultos de vistas) |
 | `milton_radar_applied` | Tracking de postulaciones `{id, appliedAt, notes}[]` |
+| `milton_radar_notes` | Notas personales por fondo `{[id]: string}` |
+| `milton_radar_starred` | IDs de fondos destacados (estrella) |
+| `milton_radar_recent` | Últimos 6 IDs de fondos expandidos (historial) |
 | `radar_import_perplexity` | Preferencia de modo Perplexity-first en importador |
